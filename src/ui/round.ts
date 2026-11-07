@@ -42,6 +42,8 @@ export class Round {
   private viewing = false;
   /** Is de beste oplossing van deze ronde al eens afgespeeld? Dan wisselt de knop meteen. */
   private solutionPlayed = false;
+  /** Is de viering bij het maximum in deze ronde al zo ver dat de teller goud mag zijn? */
+  private perfectShown = false;
   private toggleBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => (this.viewing ? this.showMine() : void this.showSolution()) });
   private active = false;
 
@@ -62,6 +64,7 @@ export class Round {
     this.g = g;
     this.viewing = false;
     this.solutionPlayed = false;
+    this.perfectShown = false;
     this.isBusy = false;
     if (this.active) this.takeBoard();
     this.refresh();
@@ -133,8 +136,16 @@ export class Round {
     this.board.setInteractive(false);
     this.renderTray();
     this.actions.replaceChildren();
+    this.perfectShown = false;
     this.renderCounter(0);
-    await this.board.fire.play(trace(g.puzzle, g.placements), { perfect: (g.score ?? 0) >= g.max, onHit: (n) => { this.sfx.hit(n); this.renderCounter(n); } });
+    let shown = 0;
+    await this.board.fire.play(trace(g.puzzle, g.placements), {
+      perfect: (g.score ?? 0) >= g.max,
+      onHit: (n) => { shown = n; this.sfx.hit(n); this.renderCounter(n); },
+      onNote: (i) => this.sfx.perfectNote(i),
+      onBloom: () => this.sfx.bloom(),
+      onPerfect: () => { if (this.g !== g) return; this.perfectShown = true; this.renderCounter(shown); },
+    });
     if (this.g !== g) return;
     this.isBusy = false;
     this.refresh();
@@ -219,5 +230,8 @@ export class Round {
     if (g.submitted && n === undefined) n = this.viewing ? g.max : (g.score ?? 0);
     this.counter.textContent = n === undefined ? '' : `💎 ${n}`;
     this.counter.classList.toggle('is-visible', n !== undefined);
+    // Goud bij het maximum, zolang je naar je eigen straal kijkt. Tijdens het vuren pas na de schokgolf.
+    const max = g.submitted && !this.viewing && (g.score ?? 0) >= g.max;
+    this.counter.classList.toggle('is-perfect', max && (this.perfectShown || (n === undefined && !this.isBusy)));
   }
 }

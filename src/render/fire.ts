@@ -4,7 +4,8 @@ import type { Placement } from '../core/types';
 import { COLORS } from '../ui/tokens';
 import type { BoardView } from './board';
 import { beamLength, drawBeam, hitDistances, pointsAt } from './beamFx';
-import { burst, shardRain } from './particles';
+import { celebrate } from './celebrate';
+import { burst } from './particles';
 import { spring } from './tween';
 
 const CELLS_PER_SEC = 6;
@@ -14,6 +15,17 @@ const SOLUTION_MIRROR_MS = 550;
 const SOLUTION_PAUSE_MS = 300;
 const SOLUTION_CELLS_PER_SEC = CELLS_PER_SEC;
 const SOLUTION_MAX_MS = MAX_MS;
+
+export interface PlayOpts {
+  perfect: boolean;
+  onHit: (count: number) => void;
+  /** Viering bij het maximum: noot per kristalpuls, akkoord bij de schokgolf, gouden teller. */
+  onNote?: (i: number) => void;
+  onBloom?: () => void;
+  onPerfect?: () => void;
+}
+
+const noop = () => {};
 
 const EMPTY: TraceResult = { segments: [], hit: new Set(), score: 0 };
 
@@ -33,8 +45,8 @@ export class FireFx {
     board.fxLayer.addChild(this.glow, this.core, this.head);
   }
 
-  /** De grote animatie na "Vuur!". Resolvet als alles klaar is. */
-  async play(t: TraceResult, opts: { perfect: boolean; onHit: (count: number) => void }): Promise<void> {
+  /** De grote animatie na "Vuur!". Resolvet als alles klaar is (een scherfregen mag nog doorlopen). */
+  async play(t: TraceResult, opts: PlayOpts): Promise<void> {
     const b = this.board;
     b.setInteractive(false);
     b.hideBeam();
@@ -47,6 +59,7 @@ export class FireFx {
       await b.tweens.to(250, (k) => { this.dim.alpha = 0.35 * k; });
       b.setTrace(t);
       opts.onHit(t.score);
+      if (opts.perfect) await celebrate(b, t, this.celebrateOpts(opts));
       await b.tweens.to(250, (k) => { this.dim.alpha = 0.35 * (1 - k); });
       return;
     }
@@ -77,9 +90,7 @@ export class FireFx {
     }, (k) => k);
     this.clearProgress();
     b.setTrace(t);
-    if (opts.perfect) {
-      void shardRain(b.fxLayer, b.tweens, W, H, [COLORS.accent, COLORS.beam.white, COLORS.crystal.white, COLORS.beam.blue, COLORS.beam.red, COLORS.beam.green]);
-    }
+    if (opts.perfect) await celebrate(b, t, this.celebrateOpts(opts));
     await b.tweens.to(420, (k) => { this.dim.alpha = 0.5 * (1 - k); });
   }
 
@@ -133,6 +144,10 @@ export class FireFx {
     ring.position.set((p.x + 0.5) * c, (p.y + 0.5) * c);
     b.fxLayer.addChild(ring);
     void b.tweens.to(560, (k) => { ring.scale.set(0.6 + k * 0.5); ring.alpha = 1 - k; }).then(() => ring.destroy());
+  }
+
+  private celebrateOpts(o: PlayOpts) {
+    return { onNote: o.onNote ?? noop, onBloom: o.onBloom ?? noop, onPerfect: o.onPerfect ?? noop };
   }
 
   private clearProgress() { this.glow.clear(); this.core.clear(); this.head.clear(); }
