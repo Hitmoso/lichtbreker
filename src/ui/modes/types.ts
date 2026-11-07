@@ -1,3 +1,4 @@
+import type { Sfx } from '../../audio/sound';
 import type { BoardView } from '../../render/board';
 import type { SavedState } from '../../state/storage';
 import type { Round } from '../round';
@@ -7,6 +8,8 @@ export type ModeName = 'daily' | 'endless';
 /** Wat een modus van de app krijgt. */
 export interface ModeContext {
   board: BoardView;
+  /** Geluidseffecten (stil als geluid uit staat of niet werkt). */
+  sfx: Sfx;
   getSaved(): SavedState;
   setSaved(s: SavedState): void;
   announce(msg: string): void;

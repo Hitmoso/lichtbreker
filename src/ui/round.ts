@@ -1,3 +1,5 @@
+import { tapCue } from '../audio/cue';
+import type { Sfx } from '../audio/sound';
 import { trace } from '../core/beam';
 import type { BoardView } from '../render/board';
 import { resetPlacements, submit, tapCell, type GameState } from '../state/game';
@@ -43,7 +45,7 @@ export class Round {
   private toggleBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => (this.viewing ? this.showMine() : void this.showSolution()) });
   private active = false;
 
-  constructor(private board: BoardView, private announce: (msg: string) => void, private hooks: RoundHooks) {
+  constructor(private board: BoardView, private announce: (msg: string) => void, private sfx: Sfx, private hooks: RoundHooks) {
     this.dock = h('footer', { class: 'dock' }, h('div', { class: 'dock-row' }, this.tray, this.counter), this.actions);
   }
 
@@ -94,11 +96,13 @@ export class Round {
     const r = tapCell(g, x, y);
     if (r.rejected) {
       this.board.shake(x, y);
+      this.sfx.reject();
       navigator.vibrate?.(20);
       const empty = g.puzzle.cells[y * g.puzzle.width + x].kind === 'empty';
       this.announce(empty ? 'Geen spiegels meer over. Tik op een spiegel om hem te draaien of weg te halen.' : 'Hier kan geen spiegel.');
       return;
     }
+    this.sfx[tapCue(g.placements, r.state.placements)]();
     this.change(r.state, true);
     this.announce(`${describeCell(r.state.puzzle, r.state.placements, x, y)}. De straal raakt nu ${trace(r.state.puzzle, r.state.placements).score} kristallen.`);
   }
@@ -109,6 +113,7 @@ export class Round {
 
   reset(): void {
     if (!this.g || this.isBusy || this.g.submitted) return;
+    if (this.g.placements.length) this.sfx.reset();
     this.change(resetPlacements(this.g), true);
   }
 
@@ -121,6 +126,7 @@ export class Round {
     // Intussen een andere ronde geladen (dagwissel, overslaan)? Dan niets indienen.
     if (this.g !== start) return;
     if (!yes) { this.isBusy = false; this.renderActions(); return; }
+    this.sfx.charge();
     const g = submit(start);
     this.g = g;
     this.hooks.persist(g);
@@ -128,7 +134,7 @@ export class Round {
     this.renderTray();
     this.actions.replaceChildren();
     this.renderCounter(0);
-    await this.board.fire.play(trace(g.puzzle, g.placements), { perfect: (g.score ?? 0) >= g.max, onHit: (n) => this.renderCounter(n) });
+    await this.board.fire.play(trace(g.puzzle, g.placements), { perfect: (g.score ?? 0) >= g.max, onHit: (n) => { this.sfx.hit(n); this.renderCounter(n); } });
     if (this.g !== g) return;
     this.isBusy = false;
     this.refresh();
@@ -146,7 +152,10 @@ export class Round {
     }
     this.isBusy = true;
     this.actions.replaceChildren();
-    await this.board.fire.playSolution(g.solution, trace(g.puzzle, g.solution));
+    await this.board.fire.playSolution(g.solution, trace(g.puzzle, g.solution), {
+      onMirror: (k) => this.sfx.solutionMirror(k),
+      onHit: (n) => this.sfx.hit(n, { soft: true }),
+    });
     if (this.g !== g) return;
     this.solutionPlayed = true;
     this.isBusy = false;

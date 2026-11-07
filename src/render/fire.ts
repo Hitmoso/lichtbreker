@@ -84,7 +84,7 @@ export class FireFx {
   }
 
   /** Spiegels van de beste oplossing verschijnen één voor één, daarna de straal. */
-  async playSolution(solution: readonly Placement[], t: TraceResult): Promise<void> {
+  async playSolution(solution: readonly Placement[], t: TraceResult, opts: { onMirror?(k: number): void; onHit?(n: number): void } = {}): Promise<void> {
     const b = this.board;
     b.setInteractive(false);
     b.update([], EMPTY, { animate: false });
@@ -94,6 +94,7 @@ export class FireFx {
       b.update(solution.slice(0, k), EMPTY, { animate: true });
       b.hideBeam();
       if (!reduced) this.ring(solution[k - 1]);
+      opts.onMirror?.(k);
       await b.tweens.wait(reduced ? 0 : SOLUTION_MIRROR_MS);
     }
     if (reduced) { b.setTrace(t); return; }
@@ -105,7 +106,7 @@ export class FireFx {
     await b.tweens.to(dur, (k) => {
       const d = k * len;
       this.drawProgress(t.segments, d, true);
-      for (const [i, at] of hits) if (at <= d && !lit.has(i)) { lit.add(i); b.setLit(lit); }
+      for (const [i, at] of hits) if (at <= d && !lit.has(i)) { lit.add(i); b.setLit(lit); opts.onHit?.(lit.size); }
     }, (k) => k);
     this.clearProgress();
     b.setTrace(t);

@@ -39,7 +39,7 @@ export function createEndlessMode(ctx: ModeContext): Mode {
   const skipBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => void skip() }, 'Overslaan');
   const nextBtn = h('button', { class: 'btn btn-fire', type: 'button', onClick: () => void next() }, 'Volgende puzzel');
 
-  const round: Round = new Round(ctx.board, ctx.announce, {
+  const round: Round = new Round(ctx.board, ctx.announce, ctx.sfx, {
     persist: (g) => {
       const e = getE();
       if (!e.current) return;

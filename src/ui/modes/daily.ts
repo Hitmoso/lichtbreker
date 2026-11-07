@@ -31,7 +31,7 @@ export function createDailyMode(ctx: ModeContext): DailyMode {
 
   const resultBtn = h('button', { class: 'btn btn-fire', type: 'button', onClick: () => openResult() }, 'Resultaat');
 
-  const round: Round = new Round(ctx.board, ctx.announce, {
+  const round: Round = new Round(ctx.board, ctx.announce, ctx.sfx, {
     persist: (g) => ctx.setSaved(toSaved(ctx.getSaved(), g)),
     afterFire: () => openResult(),
     idleButtons: () => [],

@@ -1,3 +1,4 @@
+import { Sound } from '../audio/sound';
 import { BoardView } from '../render/board';
 import type { GameState } from '../state/game';
 import { loadState, saveState, type SavedState } from '../state/storage';
@@ -12,6 +13,10 @@ import { closeSheet } from './sheet';
 import { quiet } from './tips';
 
 export { today } from './modes/daily';
+
+const SPEAKER = '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/>';
+const SOUND_ON = `${SPEAKER}<path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.6a7.6 7.6 0 0 1 0 10.8"/>`;
+const SOUND_OFF = `${SPEAKER}<path d="M16 9.5l5 5M21 9.5l-5 5"/>`;
 
 function safeStorage(): Storage | null {
   try { const s = window.localStorage; s.getItem('x'); return s; } catch { return null; }
@@ -39,14 +44,22 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   const storage = safeStorage();
   let saved = loadState(storage);
 
+  const sound = new Sound({ storage });
+
   // --- opbouw ---
   const numEl = h('span', { class: 'top-num' });
   const helpBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Uitleg', onClick: () => { const g = active.round.game; if (g) hooks.onHelp?.(g); } },
     svgIcon('<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4"/><circle cx="12" cy="16.8" r=".6" fill="currentColor"/>', 'Uitleg'));
   const statsBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Statistieken', onClick: () => hooks.onStats?.(saved, daily.number) },
     svgIcon('<path d="M5 20V12M12 20V5M19 20v-6"/>', 'Statistieken'));
+  const soundBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Geluid', onClick: () => { sound.setOn(!sound.on); paintSound(); } });
+  const paintSound = () => {
+    soundBtn.setAttribute('aria-pressed', String(sound.on));
+    soundBtn.replaceChildren(svgIcon(sound.on ? SOUND_ON : SOUND_OFF, sound.on ? 'Geluid aan' : 'Geluid uit'));
+  };
+  paintSound();
   const header = h('header', { class: 'top' },
-    h('h1', { class: 'brand' }, 'Lichtbreker'), numEl, h('span', { class: 'top-spacer' }), helpBtn, statsBtn);
+    h('h1', { class: 'brand' }, 'Lichtbreker'), numEl, h('span', { class: 'top-spacer' }), soundBtn, helpBtn, statsBtn);
 
   const host = h('div', { class: 'board-host' });
   const loading = h('p', { class: 'loading', role: 'status', hidden: true }, 'Licht wordt gebroken…');
@@ -78,6 +91,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
 
   const modeCtx: ModeContext = {
     board,
+    sfx: sound,
     getSaved: () => saved,
     setSaved: (s) => { saved = s; saveState(storage, saved); },
     announce,
