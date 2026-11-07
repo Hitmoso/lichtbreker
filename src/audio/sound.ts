@@ -80,9 +80,9 @@ export class Sound implements Sfx {
   }
 
   place() { this.play((k, at) => pling(k, at, vary(noteFreq(4), 0.5))); }
-  rotate() { this.play((k, at) => tick(k, at, vary(noteFreq(6), 0.35))); }
+  rotate() { this.play((k, at) => tick(k, at, vary(noteFreq(6), 0.45))); }
   remove() { this.play((k, at) => slideDown(k, at, vary(noteFreq(4), 0.4))); }
-  reject() { this.play((k, at) => tok(k, at, vary(180, 0.35))); }
+  reject() { this.play((k, at) => tok(k, at, vary(180, 0.5))); }
   reset() {
     this.play((k, at) => [6, 4, 2].map((s, i) => tick(k, at + i * 0.06, vary(noteFreq(s), 0.25))));
   }
@@ -102,7 +102,7 @@ export class Sound implements Sfx {
       glass(k, at + 0.26, vary(noteFreq(8), 0.14)),
     ]);
   }
-  solutionMirror(k: number) { this.play((kit, at) => tick(kit, at, vary(noteFreq(Math.min(9, 3 + k)), 0.35 * SOFT))); }
+  solutionMirror(k: number) { this.play((kit, at) => tick(kit, at, vary(noteFreq(Math.min(9, 3 + k)), 0.7 * SOFT))); }
 
   // --- intern ---
 
@@ -149,7 +149,7 @@ export class Sound implements Sfx {
     limiter.threshold.value = -10;
     limiter.knee.value = 4;
     limiter.ratio.value = 12;
-    limiter.attack.value = 0.003;
+    limiter.attack.value = 0.001;
     limiter.release.value = 0.25;
 
     master.connect(lowpass);

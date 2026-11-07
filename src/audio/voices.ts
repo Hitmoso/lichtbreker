@@ -5,8 +5,8 @@
 
 /** Instelbare klankkleur; de geluidsproef past dit live aan. */
 export const TONE = {
-  /** Masterniveau (≈ −12 dBFS). */
-  master: 0.25,
+  /** Masterniveau (enkele geluiden pieken rond −14 dBFS; de limiter vangt stapels op). */
+  master: 0.6,
   /** Aandeel galm. */
   wet: 0.22,
   /** Kantelfrequentie van het zachte laagdoorlaatfilter op de master (Hz). */

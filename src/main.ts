@@ -22,10 +22,15 @@ async function onboarding(ctx: AppContext) {
   await showFirstSeenTips(ctx.board, document.querySelector('.stage')!, fresh);
 }
 
-void startApp(document.getElementById('app')!, {
-  onHelp: (g) => showHelp(g.puzzle),
-  onStats: (saved, todayNumber) => showStats(computeStats(saved.history, todayNumber), saved.endless.stats),
-  onPuzzle: (ctx) => void onboarding(ctx),
-}).then((ctx) => {
-  if (import.meta.env.DEV) Object.assign(window, { __lb: ctx });
-});
+// Geluidsproef (alleen in dev): ?geluid
+if (import.meta.env.DEV && new URLSearchParams(location.search).has('geluid')) {
+  void import('./audio/proef').then((m) => m.mount());
+} else {
+  void startApp(document.getElementById('app')!, {
+    onHelp: (g) => showHelp(g.puzzle),
+    onStats: (saved, todayNumber) => showStats(computeStats(saved.history, todayNumber), saved.endless.stats),
+    onPuzzle: (ctx) => void onboarding(ctx),
+  }).then((ctx) => {
+    if (import.meta.env.DEV) Object.assign(window, { __lb: ctx });
+  });
+}
