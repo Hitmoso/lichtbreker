@@ -4,6 +4,7 @@ import { resetPlacements, submit, tapCell, type GameState } from '../state/game'
 import { h } from './dom';
 import { describeCell } from './describe';
 import { confirmFire } from './screens/confirm';
+import { quiet } from './tips';
 
 export interface RoundHooks {
   /** Na elke wijziging van de ronde (plaatsen, wissen, indienen). */
@@ -51,6 +52,8 @@ export class Round {
 
   /** Nieuwe of hervatte ronde. Tekent op het veld als deze ronde actief is. */
   set(g: GameState): void {
+    // Tips van de vorige puzzel horen niet bij deze.
+    if (this.active) quiet();
     this.g = g;
     this.viewing = false;
     this.isBusy = false;

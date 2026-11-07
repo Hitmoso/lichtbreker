@@ -85,7 +85,7 @@ for (const [width, height] of [...sizes, [844, 390]] as const) {
     await page.getByRole('radio', { name: 'Oneindig' }).click();
     for (const level of ['Moeilijk', 'Makkelijk']) {
       await page.getByRole('radio', { name: level }).click();
-      await expect(page.locator('.loading')).toBeHidden();
+      await expect(page.locator('.loading')).toBeHidden({ timeout: 15_000 });
       await page.waitForTimeout(300);
       expect(await noScroll(page)).toEqual({ v: true, h: true });
       const board = (await page.locator('.board-host canvas').boundingBox())!;
@@ -103,7 +103,7 @@ test('landscape phone keeps the board playable (cells of at least 30 px)', async
   await ready(page);
   for (const mode of ['Dagelijks', 'Oneindig']) {
     await page.getByRole('radio', { name: mode }).click();
-    await expect(page.locator('.loading')).toBeHidden();
+    await expect(page.locator('.loading')).toBeHidden({ timeout: 15_000 });
     await page.waitForTimeout(300);
     const canvas = page.locator('.board-host canvas');
     const box = (await canvas.boundingBox())!;

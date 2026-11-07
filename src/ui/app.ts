@@ -9,6 +9,7 @@ import { createEndlessMode } from './modes/endless';
 import type { Mode, ModeContext, ModeName } from './modes/types';
 import { segmented } from './segmented';
 import { closeSheet } from './sheet';
+import { quiet } from './tips';
 
 export { today } from './modes/daily';
 
@@ -25,8 +26,8 @@ export interface AppHooks {
 
 export interface AppContext {
   board: BoardView;
-  /** Ronde van de actieve modus. */
-  get game(): GameState;
+  /** Ronde van de actieve modus (null zolang die nog laadt). */
+  get game(): GameState | null;
   get saved(): SavedState;
   setSaved(s: SavedState): void;
   /** Dagpuzzel opnieuw laden (dagwissel). */
@@ -101,6 +102,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     if (next === active || active.round.busy) { modeSwitch.set(active.name); return; }
     modeSwitch.set(name);
     closeSheet();
+    quiet();
     active.leave();
     active = next;
     controlsSlot.replaceChildren(...(next.controls ? [next.controls] : []));
@@ -111,7 +113,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
 
   const ctx: AppContext = {
     board,
-    get game() { return active.round.game!; },
+    get game() { return active.round.game; },
     get saved() { return saved; },
     setSaved: modeCtx.setSaved,
     reload: () => daily.reload(),

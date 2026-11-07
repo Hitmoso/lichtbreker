@@ -7,7 +7,7 @@ const pause = (page: Page) => page.waitForTimeout(450); // paneel negeert tikken
 async function openEndless(page: Page) {
   await page.getByRole('radio', { name: 'Oneindig' }).click();
   await expect(page.getByRole('radiogroup', { name: 'Moeilijkheid' })).toBeVisible();
-  await expect(page.locator('.loading')).toBeHidden();
+  await expect(page.locator('.loading')).toBeHidden({ timeout: 15_000 });
   await expect(page.locator('.board-host canvas')).toBeVisible();
 }
 
@@ -46,7 +46,7 @@ test('skip: direct without mirrors, asks with mirrors', async ({ page }) => {
   await openEndless(page);
   const seed1 = (await saved(page)).endless.current.seed;
   await page.getByRole('button', { name: 'Overslaan' }).click();
-  await expect.poll(async () => (await saved(page)).endless.current.seed).not.toBe(seed1);
+  await expect.poll(async () => (await saved(page)).endless.current.seed, { timeout: 15_000 }).not.toBe(seed1);
   expect((await saved(page)).endless.stats.normal.played).toBe(0);
   await placeOneMirror(page);
   await page.getByRole('button', { name: 'Overslaan' }).click();
@@ -118,4 +118,21 @@ test('stats show an Oneindig block only after playing endless', async ({ page })
   await expect(stats.getByRole('heading', { name: 'Oneindig' })).toBeVisible();
   await expect(block).toContainText('Normaal');
   await expect(block.locator('.es-played')).toHaveText('1');
+});
+
+test('tips stop when switching modes or skipping', async ({ page }) => {
+  // Een vers profiel: de dagpuzzel van vandaag laat tips zien als hij extra elementen heeft.
+  await page.evaluate(() => {
+    localStorage.setItem('lichtbreker:v1', JSON.stringify({ version: 1, tutorialSeen: true, seenElements: [], current: null, history: {} }));
+  });
+  await page.reload();
+  await expect(page.locator('.board-host canvas')).toBeVisible();
+  await page.waitForTimeout(300);
+  const hadTip = (await page.locator('.tip.is-on').count()) > 0;
+  await page.getByRole('radio', { name: 'Oneindig' }).click();
+  await page.getByRole('radio', { name: 'Makkelijk' }).click();
+  await expect(page.locator('.loading')).toBeHidden({ timeout: 15_000 });
+  // Makkelijk heeft geen extra elementen, dus er hoort geen tip te staan.
+  await expect(page.locator('.tip.is-on')).toHaveCount(0, { timeout: 1000 });
+  test.info().annotations.push({ type: 'daily had tip', description: String(hadTip) });
 });

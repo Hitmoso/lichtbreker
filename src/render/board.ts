@@ -4,6 +4,7 @@ import type { BeamColor, Cell, ElementKind, MirrorKind, Placement, Puzzle } from
 import { COLORS } from '../ui/tokens';
 import { beamLength, drawBeam, drawGlints } from './beamFx';
 import { FireFx } from './fire';
+import { sharedBlur } from './filters';
 import { Tweens, easeOut, spring } from './tween';
 import { moveCursor } from '../ui/describe';
 
@@ -319,7 +320,7 @@ export class BoardView {
       case 'source': {
         const g = new Graphics();
         const glow = new Graphics().circle(cx, cy, c * 0.34).fill({ color: COLORS.beam.white, alpha: 0.5 });
-        glow.filters = [new BlurFilter({ strength: 8 })];
+        glow.filters = [sharedBlur(8)];
         const dx = [1, 0, -1, 0][cell.dir], dy = [0, 1, 0, -1][cell.dir];
         g.roundRect(cx - c * 0.3, cy - c * 0.3, c * 0.6, c * 0.6, c * 0.18).fill({ color: COLORS.surface }).stroke({ width: 2, color: COLORS.accent });
         g.circle(cx + dx * c * 0.12, cy + dy * c * 0.12, c * 0.1).fill({ color: COLORS.beam.white });
@@ -330,7 +331,7 @@ export class BoardView {
         const node = new Container();
         const r = c * 0.26;
         const glow = crystalShape(new Graphics(), cell.color, cx, cy, r * 1.5).fill({ color: COLORS.crystal[cell.color], alpha: 0.9 });
-        glow.filters = [new BlurFilter({ strength: 7 })];
+        glow.filters = [sharedBlur(7)];
         glow.blendMode = 'add';
         glow.alpha = 0;
         const body = crystalShape(new Graphics(), cell.color, cx, cy, r).fill({ color: COLORS.crystal[cell.color], alpha: 0.28 }).stroke({ width: 2, color: COLORS.crystal[cell.color], alpha: 0.95 });

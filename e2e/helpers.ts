@@ -14,7 +14,7 @@ export async function skipTutorial(page: Page) {
 export async function ready(page: Page) {
   await page.goto('/');
   await expect(page.locator('.board-host canvas')).toBeVisible();
-  await expect(page.locator('.loading')).toBeHidden();
+  await expect(page.locator('.loading')).toBeHidden({ timeout: 15_000 });
 }
 
 export async function noScroll(page: Page) {

@@ -26,7 +26,7 @@ In Oneindig staat boven het veld een tweede, kleinere keuze **Makkelijk | Normaa
 | | Makkelijk | Normaal | Moeilijk |
 |---|---|---|---|
 | Raster (b × h) | 5 × 7 | 7 × 9 | 8 × 10 |
-| Spelersspiegels | 2–3 | 3–6 | 5–7 |
+| Spelersspiegels | 2–3 | 3–6 | 5–6 |
 | Extra elementsoorten | 0 | 0–3 | 2–3 |
 | Muren | 2–4 | 4–8 | 6–10 |
 | Kristallen | 6–9 | 10–16 | 14–20 |

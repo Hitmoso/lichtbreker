@@ -13,8 +13,10 @@ async function onboarding(ctx: AppContext) {
     await showTutorial(reduced());
     ctx.setSaved({ ...ctx.saved, tutorialSeen: true });
   }
-  if (ctx.game.submitted) return;
-  const fresh = elementKinds(ctx.game.puzzle).filter((k) => !ctx.saved.seenElements.includes(k));
+  // Na de tutorial kan de speler intussen van modus zijn gewisseld.
+  const g = ctx.game;
+  if (!g || g.submitted) return;
+  const fresh = elementKinds(g.puzzle).filter((k) => !ctx.saved.seenElements.includes(k));
   if (!fresh.length) return;
   ctx.setSaved({ ...ctx.saved, seenElements: [...ctx.saved.seenElements, ...fresh] });
   await showFirstSeenTips(ctx.board, document.querySelector('.stage')!, fresh);
