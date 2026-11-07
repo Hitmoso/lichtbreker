@@ -49,6 +49,7 @@ export function createDailyMode(ctx: ModeContext): DailyMode {
       max: g.max,
       share: shareText(g.number, score, g.max),
       secondary: { label: 'Bekijk beste oplossing', onClick: () => void round.showSolution() },
+      extra: [{ label: 'Meer spelen', onClick: () => ctx.switchTo('endless') }],
       countdown: true,
     });
   };

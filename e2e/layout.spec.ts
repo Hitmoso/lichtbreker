@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { brightPixels, noScroll, placeOneMirror, ready, skipTutorial } from './helpers';
 
+type Box = { x: number; y: number; width: number; height: number };
+/** Overlappen twee rechthoeken (met 1 px speling)? */
+const overlap = (a: Box, b: Box) =>
+  a.x < b.x + b.width - 1 && b.x < a.x + a.width - 1 && a.y < b.y + b.height - 1 && b.y < a.y + a.height - 1;
+
 const sizes = [[360, 640], [390, 844], [430, 932], [1280, 800], [1920, 1080]] as const;
 
 for (const [width, height] of sizes) {
@@ -56,8 +61,8 @@ test('landscape phone: the board never covers the header or the buttons', async 
   const board = (await page.locator('.board-host canvas').boundingBox())!;
   const top = (await page.locator('header.top').boundingBox())!;
   const dock = (await page.locator('footer.dock').boundingBox())!;
-  expect(board.y).toBeGreaterThanOrEqual(top.y + top.height - 1);
-  expect(board.y + board.height).toBeLessThanOrEqual(dock.y + 1);
+  expect(overlap(board, top)).toBe(false);
+  expect(overlap(board, dock)).toBe(false);
 });
 
 test('resizing during the fire animation does not freeze the game', async ({ page }) => {
@@ -70,4 +75,40 @@ test('resizing during the fire animation does not freeze the game', async ({ pag
   await page.getByRole('button', { name: 'Ja, vuur!' }).click();
   for (const w of [430, 360, 400]) { await page.waitForTimeout(150); await page.setViewportSize({ width: w, height: 844 }); }
   await expect(page.getByRole('dialog', { name: 'Resultaat' })).toBeVisible({ timeout: 15_000 });
+});
+
+for (const [width, height] of [...sizes, [844, 390]] as const) {
+  test(`endless mode: no scroll and board between header and dock at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await skipTutorial(page);
+    await ready(page);
+    await page.getByRole('radio', { name: 'Oneindig' }).click();
+    for (const level of ['Moeilijk', 'Makkelijk']) {
+      await page.getByRole('radio', { name: level }).click();
+      await expect(page.locator('.loading')).toBeHidden();
+      await page.waitForTimeout(300);
+      expect(await noScroll(page)).toEqual({ v: true, h: true });
+      const board = (await page.locator('.board-host canvas').boundingBox())!;
+      const controls = (await page.locator('.mode-controls').boundingBox())!;
+      const dock = (await page.locator('footer.dock').boundingBox())!;
+      expect(overlap(board, controls)).toBe(false);
+      expect(overlap(board, dock)).toBe(false);
+    }
+  });
+}
+
+test('landscape phone keeps the board playable (cells of at least 30 px)', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await skipTutorial(page);
+  await ready(page);
+  for (const mode of ['Dagelijks', 'Oneindig']) {
+    await page.getByRole('radio', { name: mode }).click();
+    await expect(page.locator('.loading')).toBeHidden();
+    await page.waitForTimeout(300);
+    const canvas = page.locator('.board-host canvas');
+    const box = (await canvas.boundingBox())!;
+    const rows = Number(await canvas.getAttribute('data-rows'));
+    expect(box.height / rows, mode).toBeGreaterThanOrEqual(30);
+    expect(await noScroll(page)).toEqual({ v: true, h: true });
+  }
 });

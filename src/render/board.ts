@@ -152,6 +152,8 @@ export class BoardView {
 
   setPuzzle(p: Puzzle) {
     this.puzzle = p;
+    this.app.canvas.dataset.cols = String(p.width);
+    this.app.canvas.dataset.rows = String(p.height);
     this.cursor = { x: 0, y: 0 };
     this.currentPlacements = [];
     this.lit.clear();

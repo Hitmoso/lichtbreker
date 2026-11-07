@@ -28,11 +28,14 @@ const usedMirrors = (page: Page) => page.locator('.tray-mirror.is-used').count()
 
 /** Tikt vakken in leesvolgorde tot er een spiegel geplaatst is. Geeft het vak terug. */
 export async function placeOneMirror(page: Page): Promise<{ x: number; y: number }> {
-  const box = (await page.locator('.board-host canvas').boundingBox())!;
-  const size = box.width / 7;
+  const canvas = page.locator('.board-host canvas');
+  const box = (await canvas.boundingBox())!;
+  const cols = Number(await canvas.getAttribute('data-cols'));
+  const rows = Number(await canvas.getAttribute('data-rows'));
+  const size = box.width / cols;
   const before = await usedMirrors(page);
-  for (let y = 0; y < 9; y++) {
-    for (let x = 0; x < 7; x++) {
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
       await page.mouse.click(box.x + (x + 0.5) * size, box.y + (y + 0.5) * size);
       if ((await usedMirrors(page)) > before) return { x, y };
     }

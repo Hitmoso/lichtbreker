@@ -5,7 +5,9 @@ import './app.css';
 import { h, svgIcon } from './dom';
 import { fitCell } from './layout';
 import { createDailyMode, type DailyMode } from './modes/daily';
+import { createEndlessMode } from './modes/endless';
 import type { Mode, ModeContext, ModeName } from './modes/types';
+import { segmented } from './segmented';
 import { closeSheet } from './sheet';
 
 export { today } from './modes/daily';
@@ -48,10 +50,16 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   const host = h('div', { class: 'board-host' });
   const loading = h('p', { class: 'loading', role: 'status', hidden: true }, 'Licht wordt gebroken…');
   const stage = h('main', { class: 'stage' }, host, loading);
+  const modeSwitch = segmented<ModeName>({
+    label: 'Modus',
+    options: [{ value: 'daily', text: 'Dagelijks' }, { value: 'endless', text: 'Oneindig' }],
+    value: 'daily',
+    onChange: (m) => void switchTo(m),
+  });
   const controlsSlot = h('div', { class: 'mode-controls' });
   const dockSlot = h('div', { class: 'dock-slot' });
   const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
-  root.replaceChildren(header, controlsSlot, stage, dockSlot, live);
+  root.replaceChildren(header, h('nav', { class: 'mode-switch' }, modeSwitch.el), controlsSlot, stage, dockSlot, live);
 
   const board = await BoardView.create(host);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -80,20 +88,24 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   };
 
   const daily: DailyMode = createDailyMode(modeCtx);
-  const modes: Partial<Record<ModeName, Mode>> = { daily };
+  const modes: Record<ModeName, Mode> = { daily, endless: createEndlessMode(modeCtx) };
   let active: Mode = daily;
+  // Tijdens een animatie of laden kan er niet gewisseld worden.
+  for (const m of Object.values(modes)) m.round.onBusyChange(() => modeSwitch.setDisabled(active.round.busy));
 
   board.onTap((x, y) => active.round.tap(x, y));
   board.onCursor((x, y) => active.round.describe(x, y));
 
   async function switchTo(name: ModeName) {
     const next = modes[name];
-    if (!next || (next === active && active.round.game) || active.round.busy) return;
+    if (next === active || active.round.busy) { modeSwitch.set(active.name); return; }
+    modeSwitch.set(name);
     closeSheet();
     active.leave();
     active = next;
     controlsSlot.replaceChildren(...(next.controls ? [next.controls] : []));
     dockSlot.replaceChildren(next.round.dock);
+    modeSwitch.setDisabled(next.round.busy);
     await next.enter();
   }
 

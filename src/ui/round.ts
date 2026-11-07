@@ -28,7 +28,14 @@ export class Round {
   private resetBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => this.reset() }, 'Opnieuw');
   private fireBtn = h('button', { class: 'btn btn-fire', type: 'button', onClick: () => void this.fire() }, 'Vuur!');
   private g: GameState | null = null;
-  private isBusy = false;
+  private busyFlag = false;
+  private busyListeners: ((busy: boolean) => void)[] = [];
+  private get isBusy() { return this.busyFlag; }
+  private set isBusy(v: boolean) {
+    if (v === this.busyFlag) return;
+    this.busyFlag = v;
+    for (const l of this.busyListeners) l(v);
+  }
   private viewing = false;
   private active = false;
 
@@ -38,6 +45,8 @@ export class Round {
 
   get game(): GameState | null { return this.g; }
   get busy(): boolean { return this.isBusy; }
+  /** Gemeld bij elke wijziging van `busy` (bijv. om keuzes uit te zetten tijdens animaties). */
+  onBusyChange(cb: (busy: boolean) => void): void { this.busyListeners.push(cb); }
   get viewingSolution(): boolean { return this.viewing; }
 
   /** Nieuwe of hervatte ronde. Tekent op het veld als deze ronde actief is. */
