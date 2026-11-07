@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { computeCellSize } from '../../src/ui/layout';
+import { computeCellSize, fitCell } from '../../src/ui/layout';
+
+describe('fitCell', () => {
+  it('fits the available stage area, even when that is small', () => {
+    expect(fitCell(358, 420, 7, 9)).toBe(46);
+    expect(fitCell(800, 180, 7, 9)).toBe(20);
+    expect(fitCell(2000, 2000, 7, 9)).toBe(64);
+    expect(fitCell(10, 10, 7, 9)).toBe(8);
+  });
+});
 
 describe('computeCellSize', () => {
   it('fits a phone, caps on desktop, shrinks for big grids', () => {

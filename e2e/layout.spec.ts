@@ -37,6 +37,7 @@ test('first visit shows the tutorial', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.getByRole('dialog', { name: 'Uitleg' })).toBeVisible();
+  await page.waitForTimeout(450);
   for (let i = 0; i < 2; i++) await page.getByRole('button', { name: 'Volgende' }).click();
   await page.waitForTimeout(1000); // laat de demo-animatie lopen
   await page.getByRole('button', { name: 'Spelen' }).click();
@@ -45,4 +46,28 @@ test('first visit shows the tutorial', async ({ page }) => {
   await page.waitForTimeout(500);
   const png = await page.locator('.board-host canvas').screenshot();
   expect(await brightPixels(page, png), 'main board renders after the tutorial').toBeGreaterThan(500);
+});
+
+test('landscape phone: the board never covers the header or the buttons', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await skipTutorial(page);
+  await ready(page);
+  await page.waitForTimeout(300);
+  const board = (await page.locator('.board-host canvas').boundingBox())!;
+  const top = (await page.locator('header.top').boundingBox())!;
+  const dock = (await page.locator('footer.dock').boundingBox())!;
+  expect(board.y).toBeGreaterThanOrEqual(top.y + top.height - 1);
+  expect(board.y + board.height).toBeLessThanOrEqual(dock.y + 1);
+});
+
+test('resizing during the fire animation does not freeze the game', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await skipTutorial(page);
+  await ready(page);
+  await placeOneMirror(page);
+  await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: 'Ja, vuur!' }).click();
+  for (const w of [430, 360, 400]) { await page.waitForTimeout(150); await page.setViewportSize({ width: w, height: 844 }); }
+  await expect(page.getByRole('dialog', { name: 'Resultaat' })).toBeVisible({ timeout: 15_000 });
 });

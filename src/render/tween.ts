@@ -39,14 +39,23 @@ export class Tweens {
 
   private step(dt: number) {
     if (!this.list.length) return;
+    const current = this.list;
+    // Tweens die tijdens een update worden toegevoegd, komen in de nieuwe lijst.
+    this.list = [];
     const keep: Tween[] = [];
-    for (const t of this.list) {
+    for (const t of current) {
       t.elapsed += dt;
       const k = Math.min(1, t.elapsed / t.dur);
-      t.update(t.ease(k));
+      try {
+        t.update(t.ease(k));
+      } catch (err) {
+        // Bijv. een node die intussen is opgeruimd (resize). Laat de ticker nooit stoppen.
+        console.warn('Lichtbreker: animatie afgebroken', err);
+        t.resolve();
+        continue;
+      }
       if (k >= 1) t.resolve(); else keep.push(t);
     }
-    // tweens die tijdens update zijn toegevoegd blijven staan
-    this.list = keep.concat(this.list.filter((t) => !keep.includes(t) && t.elapsed === 0));
+    this.list = keep.concat(this.list);
   }
 }

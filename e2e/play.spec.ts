@@ -8,6 +8,7 @@ test('a full round: place, fire, result, reload', async ({ page }) => {
   await placeOneMirror(page);
   await expect(page.locator('.tray-mirror.is-used')).toHaveCount(1);
   await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
+  await page.waitForTimeout(450);
   const yes = page.getByRole('button', { name: 'Ja, vuur!' });
   await yes.dblclick();
   const result = page.getByRole('dialog', { name: 'Resultaat' });
@@ -27,6 +28,7 @@ test('cancelling the confirmation keeps playing', async ({ page }) => {
   await skipTutorial(page);
   await ready(page);
   await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
+  await page.waitForTimeout(450);
   await page.getByRole('button', { name: 'Nog even niet' }).click();
   await expect(page.getByRole('button', { name: 'Vuur!', exact: true })).toBeEnabled();
   await placeOneMirror(page);
@@ -45,4 +47,19 @@ test('the board is playable with the keyboard', async ({ page }) => {
   }
   await expect(page.locator('.tray-mirror.is-used')).toHaveCount(1);
   await expect(page.locator('.sr-only')).toContainText('jouw spiegel');
+});
+
+test('a quick double tap on Vuur! does not confirm by accident', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await skipTutorial(page);
+  await ready(page);
+  const fire = (await page.getByRole('button', { name: 'Vuur!', exact: true }).boundingBox())!;
+  const x = fire.x + fire.width / 2, y = fire.y + fire.height / 2;
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(200);
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(500);
+  const history = await page.evaluate(() => JSON.parse(localStorage.getItem('lichtbreker:v1')!).history);
+  expect(Object.keys(history)).toHaveLength(0);
+  await expect(page.getByRole('button', { name: 'Ja, vuur!' })).toBeVisible();
 });

@@ -4,6 +4,7 @@ import { quiet } from './tips';
 export interface SheetHandle { close(): void; el: HTMLElement }
 
 let open: SheetHandle | null = null;
+const GUARD_MS = 400;
 
 /**
  * Paneel dat van onderen omhoog schuift. `dismissable` = sluiten via achtergrond of Escape.
@@ -32,7 +33,12 @@ export function openSheet(content: HTMLElement, opts: { label: string; dismissab
       opts.onClose?.();
     },
   };
-  if (opts.dismissable) backdrop.addEventListener('click', (e) => { if (e.target === backdrop) handle.close(); });
+  // Een snelle tweede tik (bijv. dubbel op Vuur!) mag niet meteen iets in het paneel kiezen.
+  const openedAt = performance.now();
+  backdrop.addEventListener('click', (e) => {
+    if (performance.now() - openedAt < GUARD_MS) { e.stopPropagation(); e.preventDefault(); return; }
+    if (opts.dismissable && e.target === backdrop) handle.close();
+  }, { capture: true });
   document.addEventListener('keydown', onKey);
   document.body.append(backdrop);
   let shown = false;

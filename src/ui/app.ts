@@ -7,7 +7,7 @@ import { requestDaily } from '../worker/client';
 import './app.css';
 import { h, svgIcon } from './dom';
 import { describeCell } from './describe';
-import { computeCellSize } from './layout';
+import { fitCell } from './layout';
 import { confirmFire } from './screens/confirm';
 import { showResult } from './screens/result';
 import { closeSheet } from './sheet';
@@ -105,8 +105,8 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
 
   const fit = () => {
     if (!g) return;
-    const chrome = header.offsetHeight + dock.offsetHeight + 32;
-    const size = computeCellSize(root.clientWidth, root.clientHeight, g.puzzle.width, g.puzzle.height, chrome);
+    // De stage krijgt de ruimte die kop en dok overlaten; het veld past daar altijd in.
+    const size = fitCell(stage.clientWidth, stage.clientHeight - 8, g.puzzle.width, g.puzzle.height);
     board.resize(size);
   };
 
@@ -145,7 +145,10 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     if (busy || g.submitted) return;
     busy = true;
     renderActions();
+    const number = g.number;
     const yes = await confirmFire();
+    // Intussen een nieuwe dag geladen? Dan nooit de nieuwe puzzel indienen.
+    if (g.number !== number) return;
     if (!yes || g.submitted) { busy = false; renderActions(); return; }
     g = submit(g);
     persist();
@@ -185,9 +188,13 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   // --- laden ---
   const load = async () => {
     closeSheet();
+    busy = true;
+    board.setInteractive(false);
+    if (g) { actions.replaceChildren(); }
     loading.hidden = false;
     date = today();
     const daily = await requestDaily(date);
+    closeSheet();
     g = startGame(saved, daily);
     viewingSolution = false;
     busy = false;

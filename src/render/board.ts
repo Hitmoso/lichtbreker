@@ -142,6 +142,7 @@ export class BoardView {
   setInteractive(on: boolean) { this.interactive = on; this.app.canvas.style.cursor = on ? 'pointer' : 'default'; }
 
   resize(cellSize: number) {
+    if (cellSize === this.cell && this.puzzle) return;
     this.cell = cellSize;
     if (!this.puzzle) return;
     this.drawStatic();
