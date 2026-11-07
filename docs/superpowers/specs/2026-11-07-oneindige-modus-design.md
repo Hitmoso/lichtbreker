@@ -32,8 +32,10 @@ In Oneindig staat boven het veld een tweede, kleinere keuze **Makkelijk | Normaa
 | Kristallen | 6–9 | 10–16 | 14–20 |
 | Maximum | 4–7 | 6–12 | 9–14 |
 
-- **Normaal** gebruikt exact de instellingen van de dagpuzzel (`GEN`).
-- Overige generatorinstellingen (aantal vaste spiegels, prisma's, filters, aandeel gekleurde kristallen, pogingen) zijn per niveau gelijk aan Normaal, tenzij de tabel iets anders zegt.
+- De dagpuzzel heeft eigen, vaste instellingen `DAILY` (gelijk aan het huidige `GEN`). Die worden nooit door de niveaus beïnvloed, zodat dagpuzzels niet verschuiven.
+- **Normaal** begint als kopie van `DAILY`, maar is een eigen object en mag later vrij worden bijgesteld.
+- Alle niveau-instellingen staan op één plek (`DIFFICULTIES` in `src/config.ts`) en zijn aan te passen zonder codewijziging; de tests (sectie 9) laten direct zien als een combinatie geen goede puzzels meer oplevert.
+- Overige generatorinstellingen (aantal vaste spiegels, prisma's, filters, aandeel gekleurde kristallen, pogingen) zijn per niveau gelijk aan `DAILY`, tenzij de tabel iets anders zegt.
 - Alle kwaliteitseisen uit hoofdspec 4.2 gelden per niveau, met het maximum-bereik uit de tabel.
 - Wisselen van niveau terwijl er een onaangeroerde puzzel ligt (geen spiegels, niet ingediend): direct een nieuwe puzzel op het nieuwe niveau. Liggen er al spiegels: eerst bevestigen ("Deze puzzel overslaan?" — **Overslaan** / **Blijven**).
 
@@ -74,8 +76,8 @@ endless: {
 ## 7. Techniek
 
 ```
-src/config.ts            DIFFICULTIES: Record<Difficulty, GenSettings>; GEN = DIFFICULTIES.normal
-src/core/generator.ts    generate(seed, settings = GEN); meetsQuality(p, settings = GEN); fallback per niveau
+src/config.ts            DAILY: GenSettings (vast; GEN blijft als alias); DIFFICULTIES: Record<Difficulty, GenSettings> (normal = eigen kopie van DAILY)
+src/core/generator.ts    generate(seed, settings = DAILY); meetsQuality(p, settings = DAILY); fallback per niveau
 src/worker/*             verzoeken { kind: 'daily', date } | { kind: 'endless', seed, difficulty }
 src/state/storage.ts     optioneel veld `endless`, met validatie
 src/state/endless.ts     pure functies: recordEndlessResult, defaultEndless
@@ -98,7 +100,7 @@ src/ui/app.ts            kop, schakelaar, wisselen van modus
 
 ## 9. Testen
 
-- **Vitest:** per niveau 100 seeds voldoen aan `meetsQuality` met het juiste raster en maximum-bereik; snelheid per niveau (gemiddelde < 400 ms, maximum < 2000 ms in Node); reservepuzzels per niveau voldoen; `generate(seed)` zonder settings is ongewijzigd (dagpuzzels verschuiven niet: vaste verwachte uitkomst voor een paar dagen); opslag zonder `endless` laadt; ongeldige `endless`-velden vallen terug; `recordEndlessResult` (played, perfect, run, bestRun).
+- **Vitest:** per niveau 100 seeds voldoen aan `meetsQuality` met het juiste raster en maximum-bereik; snelheid per niveau (gemiddelde < 400 ms, maximum < 2000 ms in Node); reservepuzzels per niveau voldoen; `generate(seed)` zonder settings is ongewijzigd (dagpuzzels verschuiven niet: vaste verwachte uitkomst voor een paar dagen); `DIFFICULTIES.normal` is een ander object dan `DAILY`, zodat aanpassen van Normaal de dagpuzzel niet raakt; opslag zonder `endless` laadt; ongeldige `endless`-velden vallen terug; `recordEndlessResult` (played, perfect, run, bestRun).
 - **Playwright:** schakelen Dagelijks ↔ Oneindig behoudt beide standen; een oneindige ronde spelen → resultaat → **Volgende puzzel** geeft een ander veld; **Overslaan** zonder spiegels werkt direct; herladen hervat dezelfde oneindige puzzel; niveau wisselen verandert het raster; dagpuzzel en `history` onaangetast na oneindig spelen; geen scroll op 360×640, 390×844, 844×390 en 1280×800 in beide modi.
 
 ## 10. Buiten scope
