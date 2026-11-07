@@ -34,6 +34,13 @@ Met de schakelaar **Dagelijks | Oneindig** speel je naast de dagpuzzel zoveel pu
 - Na een aanpassing: `npm test`. `tests/core/difficulties.test.ts` genereert per niveau 100 puzzels en meldt het als een combinatie geen goede of te trage puzzels oplevert (bijvoorbeeld te veel kristallen voor een klein raster).
 - Elk niveau heeft een reservepuzzel in `src/data/fallback-<niveau>.json` (Normaal gebruikt `fallback.json`). Verander je de rastermaat van een niveau, maak dan ook een nieuwe reservepuzzel van die maat.
 
+## Geluid
+
+De geluiden worden in de browser opgewekt (Web Audio, geen bestanden): `src/audio/`. De knop met de luidspreker in de kop zet ze aan of uit; de keuze staat in `localStorage` onder `lichtbreker:sound`.
+
+- Klankrecepten staan in `src/audio/voices.ts`, de algemene klankkleur (volume, galm, helderheid, uitsterving) in `TONE` daarin.
+- Bijstemmen: open de ontwikkelserver met `?geluid` (alleen in dev). Daar speel je elk geluid af, schuif je aan de klank (en kopieer je de waarden naar `TONE`), en controleert **Controleer** dat niets oversteurt.
+
 ## Publiceren
 
 `.github/workflows/pages.yml` test, bouwt en publiceert `dist/` naar GitHub Pages bij elke push naar `main`. Zet in de repo-instellingen Pages op "GitHub Actions".
