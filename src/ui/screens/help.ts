@@ -16,18 +16,18 @@ const ICON: Record<HelpKind, string> = {
 
 const TEXT: Record<HelpKind, [string, string]> = {
   mirror: ['Spiegel', 'Tik op een leeg vak: eerst ╱, dan ╲, dan weer leeg.'],
-  crystal: ['Kristal', 'Licht op als de straal erdoorheen gaat. Telt één keer, ook als de straal er vaker langskomt.'],
+  crystal: ['Kristal', 'Licht op als een witte straal erdoorheen gaat. Telt één keer, ook als de straal er vaker langskomt.'],
   coloredCrystal: ['Gekleurd kristal', 'Licht alleen op bij een straal in dezelfde kleur.'],
   wall: ['Muur', 'Houdt de straal tegen.'],
   fixedMirror: ['Vaste spiegel', 'Kaatst de straal, maar zit vast.'],
   prism: ['Prisma', 'Splitst de straal in twee: haaks naar links en naar rechts.'],
-  filter: ['Kleurfilter', 'Geeft de straal de kleur van het filter.'],
+  filter: ['Kleurfilter', 'Geeft de straal de kleur van het filter. Daarna lichten alleen kristallen in die kleur op, witte niet meer.'],
 };
 
 export const TIP: Record<ElementKind, string> = {
   fixedMirror: 'Vaste spiegel: kaatst de straal, maar zit vast.',
   prism: 'Prisma: splitst de straal in twee.',
-  filter: 'Kleurfilter: kleurt de straal. Gekleurde kristallen lichten alleen op bij hun eigen kleur.',
+  filter: 'Kleurfilter: kleurt de straal. Daarna lichten alleen kristallen in die kleur op, witte niet meer.',
 };
 
 export const elementKinds = (p: Puzzle): ElementKind[] =>

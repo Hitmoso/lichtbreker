@@ -43,7 +43,11 @@ describe('trace', () => {
   it('applies colour filters to crystals', () => {
     expect(trace(fromAscii(['>RrB.b'], 1), []).score).toBe(2);
     expect(trace(fromAscii(['>.r'], 1), []).score).toBe(0);
-    expect(trace(fromAscii(['>Bo'], 1), []).score).toBe(1);
+    // Strikte kleuren: een wit kristal telt alleen bij een witte straal.
+    expect(trace(fromAscii(['>Bo'], 1), []).score).toBe(0);
+    expect(trace(fromAscii(['>Ro'], 1), []).score).toBe(0);
+    expect(trace(fromAscii(['>.o'], 1), []).score).toBe(1);
+    expect(trace(fromAscii(['>oRrBb'], 1), []).score).toBe(3);
     const t = trace(fromAscii(['>R.'], 1), []);
     expect(t.segments.map((s) => s.color)).toEqual(['white', 'red']);
   });

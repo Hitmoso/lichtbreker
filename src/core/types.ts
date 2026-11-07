@@ -18,7 +18,7 @@ export const BEAM_COLORS: readonly BeamColor[] = ['white', 'red', 'green', 'blue
 export type Cell =
   | { kind: 'empty' }
   | { kind: 'wall' }
-  /** 'white' = geraakt door elke straal. */
+  /** Telt alleen bij een straal in dezelfde kleur ('white' alleen bij een witte straal). */
   | { kind: 'crystal'; color: BeamColor }
   | { kind: 'fixedMirror'; mirror: MirrorKind }
   | { kind: 'prism' }

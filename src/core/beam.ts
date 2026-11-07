@@ -89,7 +89,8 @@ export function walk(p: Puzzle, opts: WalkOptions): { hit: Set<number>; stoppedA
         turnHere(next);
         dir = REFLECT[kind][dir];
       } else if (nc.kind === 'crystal') {
-        if (nc.color === 'white' || nc.color === color) hit.add(next);
+        // Strikte kleuren: een kristal telt alleen bij een straal in zijn eigen kleur (wit bij wit).
+        if (nc.color === color) hit.add(next);
       } else if (nc.kind === 'filter') {
         turnHere(next);
         color = nc.color;

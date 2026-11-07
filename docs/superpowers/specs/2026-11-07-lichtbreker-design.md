@@ -36,7 +36,7 @@ Het project staat volledig los van andere projecten: eigen map (`Desktop/Lichtbr
 | Element | Gedrag |
 |---|---|
 | Leeg vak | Straal gaat rechtdoor. Hier mag de speler een spiegel zetten. |
-| Kristal (wit) | Straal gaat erdoorheen. Geraakt door een straal van elke kleur. |
+| Kristal (wit) | Straal gaat erdoorheen. Telt alleen als geraakt door een **witte** straal (strikte kleuren, sinds 2026-11-07). |
 | Gekleurd kristal (rood/groen/blauw) | Straal gaat erdoorheen. Telt alleen als geraakt door een straal van dezelfde kleur. Elk kleur heeft ook een eigen vorm/symbool (kleurenblind-vriendelijk). |
 | Muur | Straal stopt. |
 | Spelersspiegel `╱` / `╲` | Kaatst de straal (zie 3.3). |
