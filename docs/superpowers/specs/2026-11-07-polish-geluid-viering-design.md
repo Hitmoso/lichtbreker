@@ -45,7 +45,7 @@ Alle klanken worden in code opgewekt met de Web Audio API. Er zijn geen geluidsb
 | `reset()` | Opnieuw | korte neergaande reeks van drie zachte tikken |
 | `charge()` | na bevestigen van Vuur! | opzwellende adem: band-pass-ruis die in ≈ 450 ms van 400 naar 2400 Hz stijgt, plus een zachte sinus op de grondtoon |
 | `hit(n)` | n-de kristal geraakt | glastinkel op `hitStep(n)` |
-| `perfectNote(i)` | i-de kristalpuls van de viering | belnoot uit het opbloeiende akkoord (Dmaj9-arpeggio over twee octaven) |
+| `perfectNote(i)` | i-de kristalpuls van de viering | belnoot uit het opbloeiende akkoord (D6/9-arpeggio over twee octaven: D F# A B E F# A, past in de pentatonische ladder) |
 | `bloom()` | schokgolf van de viering | volle akkoordwolk: de akkoordtonen samen, zachte aanzet van ≈ 60 ms, lange glinsterende uitsterving van ≈ 2,5 s |
 | `solutionMirror(k)` | replay: k-de spiegel verschijnt | zachte tik, oplopend per spiegel, op −6 dB |
 
