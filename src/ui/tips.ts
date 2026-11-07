@@ -3,16 +3,29 @@ import type { BoardView } from '../render/board';
 import { h } from './dom';
 import { TIP } from './screens/help';
 
+/** Wordt verstuurd als de speler iets anders gaat doen (paneel openen, vuren): tips stoppen dan. */
+export const QUIET_EVENT = 'lichtbreker:quiet';
+export const quiet = () => document.dispatchEvent(new Event(QUIET_EVENT));
+
 /** Toont per nieuw element één keer een puls op het veld en een korte tip. */
 export async function showFirstSeenTips(board: BoardView, stage: HTMLElement, kinds: ElementKind[]): Promise<void> {
+  let stopped = false;
+  let current: HTMLElement | null = null;
+  const hide = (el: HTMLElement) => { el.classList.remove('is-on'); setTimeout(() => el.remove(), 400); };
+  const stop = () => { stopped = true; if (current) hide(current); };
+  document.addEventListener(QUIET_EVENT, stop, { once: true });
   for (const kind of kinds) {
+    if (stopped) break;
     board.pulse(kind);
     const tip = h('p', { class: 'tip', role: 'status' }, TIP[kind]);
+    current = tip;
     stage.append(tip);
     setTimeout(() => tip.classList.add('is-on'), 30);
     await new Promise((r) => setTimeout(r, 3800));
-    tip.classList.remove('is-on');
-    setTimeout(() => tip.remove(), 400);
+    if (stopped) break;
+    hide(tip);
+    current = null;
     await new Promise((r) => setTimeout(r, 300));
   }
+  document.removeEventListener(QUIET_EVENT, stop);
 }

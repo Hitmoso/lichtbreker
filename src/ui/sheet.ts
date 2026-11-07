@@ -1,4 +1,5 @@
 import { h } from './dom';
+import { quiet } from './tips';
 
 export interface SheetHandle { close(): void; el: HTMLElement }
 
@@ -10,6 +11,7 @@ let open: SheetHandle | null = null;
  */
 export function openSheet(content: HTMLElement, opts: { label: string; dismissable?: boolean; onClose?: () => void } = { label: '' }): SheetHandle {
   open?.close();
+  quiet();
   const panel = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.label }, content);
   const backdrop = h('div', { class: 'sheet-backdrop' }, panel);
   const prevFocus = document.activeElement as HTMLElement | null;

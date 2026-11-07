@@ -5,6 +5,7 @@ import { COLORS } from '../ui/tokens';
 import { beamLength, drawBeam, drawGlints } from './beamFx';
 import { FireFx } from './fire';
 import { Tweens, easeOut, spring } from './tween';
+import { moveCursor } from '../ui/describe';
 
 const BEAM_GROW_MS = 150;
 
@@ -61,6 +62,17 @@ export class BoardView {
   private interactive = true;
   private reduced = false;
   private lit = new Set<number>();
+  private cursor = { x: 0, y: 0 };
+  private cursorGfx = new Graphics();
+  private cursorCb: ((x: number, y: number) => void) | null = null;
+
+  /** Wordt aangeroepen als de toetsenbordcursor naar een ander vak gaat. */
+  onCursor(cb: (x: number, y: number) => void) { this.cursorCb = cb; }
+
+  private drawCursor() {
+    const c = this.cell, { x, y } = this.cursor;
+    this.cursorGfx.clear().roundRect(x * c + 2, y * c + 2, c - 4, c - 4, Math.max(4, c * 0.16)).stroke({ width: 2.5, color: COLORS.accent });
+  }
 
   private constructor(app: Application) {
     this.app = app;
@@ -79,6 +91,26 @@ export class BoardView {
       const x = Math.floor(e.global.x / this.cell), y = Math.floor(e.global.y / this.cell);
       if (x >= 0 && y >= 0 && x < this.puzzle.width && y < this.puzzle.height) this.tapCb?.(x, y);
     });
+    this.root.addChild(this.cursorGfx);
+    this.cursorGfx.visible = false;
+    const canvas = app.canvas;
+    canvas.addEventListener('focus', () => { this.cursorGfx.visible = canvas.matches(':focus-visible'); this.drawCursor(); });
+    canvas.addEventListener('blur', () => { this.cursorGfx.visible = false; });
+    canvas.addEventListener('keydown', (e) => {
+      if (!this.puzzle) return;
+      const next = moveCursor(this.cursor, e.key, this.puzzle.width, this.puzzle.height);
+      if (next) {
+        e.preventDefault();
+        this.cursor = next;
+        this.cursorGfx.visible = true;
+        this.drawCursor();
+        this.cursorCb?.(next.x, next.y);
+      } else if ((e.key === 'Enter' || e.key === ' ') && this.interactive) {
+        e.preventDefault();
+        this.cursorGfx.visible = true;
+        this.tapCb?.(this.cursor.x, this.cursor.y);
+      }
+    });
     app.ticker.add((t) => {
       if (!this.trace) return;
       if (!this.reduced) this.phase += t.deltaMS / 1000 * 1.8;
@@ -93,7 +125,10 @@ export class BoardView {
       resolution: Math.min(window.devicePixelRatio || 1, 2), width: 300, height: 300,
     });
     app.canvas.style.display = 'block';
-    app.canvas.setAttribute('aria-label', 'Speelveld');
+    app.canvas.setAttribute('role', 'application');
+    app.canvas.setAttribute('aria-roledescription', 'speelveld');
+    app.canvas.setAttribute('aria-label', 'Speelveld. Pijltjestoetsen om te bewegen, Enter of spatie om een spiegel te zetten of te draaien.');
+    app.canvas.tabIndex = 0;
     host.appendChild(app.canvas);
     return new BoardView(app);
   }
@@ -110,11 +145,13 @@ export class BoardView {
     this.cell = cellSize;
     if (!this.puzzle) return;
     this.drawStatic();
+    this.drawCursor();
     this.rebuildMirrors(this.currentPlacements, false);
   }
 
   setPuzzle(p: Puzzle) {
     this.puzzle = p;
+    this.cursor = { x: 0, y: 0 };
     this.currentPlacements = [];
     this.lit.clear();
     this.trace = null;
@@ -206,7 +243,7 @@ export class BoardView {
     });
   }
 
-  destroy() { this.app.destroy(true, { children: true }); }
+  destroy() { this.app.destroy({ removeView: true }); }
 
   // --- intern ---
 
@@ -271,8 +308,8 @@ export class BoardView {
       case 'empty': return;
       case 'wall': {
         const g = new Graphics();
-        g.roundRect(x0 + 3, y0 + 3, c - 6, c - 6, Math.max(3, c * 0.12)).fill({ color: COLORS.wall });
-        g.moveTo(x0 + 8, y0 + 4.5).lineTo(x0 + c - 8, y0 + 4.5).stroke({ width: 1.5, color: COLORS.wallEdge });
+        g.roundRect(x0 + 4, y0 + 4, c - 8, c - 8, Math.max(3, c * 0.12)).fill({ color: COLORS.wall }).stroke({ width: 2, color: COLORS.wallEdge, alpha: 0.9 });
+        g.moveTo(x0 + 9, y0 + 8).lineTo(x0 + c - 9, y0 + 8).stroke({ width: 1.5, color: COLORS.wallEdge, alpha: 0.6 });
         this.elements.addChild(g);
         return;
       }

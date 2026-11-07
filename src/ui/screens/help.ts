@@ -8,7 +8,7 @@ const ICON: Record<HelpKind, string> = {
   mirror: '<path d="M6 18 18 6" stroke="#dfe6ff" stroke-width="3" stroke-linecap="round"/>',
   crystal: '<path d="M12 4 18 12 12 20 6 12Z" fill="rgba(207,244,255,.25)" stroke="#cff4ff" stroke-width="1.8"/>',
   coloredCrystal: '<path d="M7 5 13 15H1Z" fill="rgba(255,84,112,.3)" stroke="#ff5470" stroke-width="1.6"/><circle cx="18" cy="15" r="4" fill="rgba(79,168,255,.3)" stroke="#4fa8ff" stroke-width="1.6"/>',
-  wall: '<rect x="4" y="4" width="16" height="16" rx="3" fill="#1c2756"/><path d="M7 5.5h10" stroke="#33438a" stroke-width="1.5"/>',
+  wall: '<rect x="4" y="4" width="16" height="16" rx="3" fill="#1c2756" stroke="#5a6db3" stroke-width="1.6"/>',
   fixedMirror: '<path d="M6 18 18 6" stroke="#9aa6d8" stroke-width="3" stroke-linecap="round"/><circle cx="6" cy="18" r="1.8" fill="#33438a"/><circle cx="18" cy="6" r="1.8" fill="#33438a"/>',
   prism: '<path d="M12 4 20 19H4Z" fill="rgba(255,255,255,.08)" stroke="#fff" stroke-width="1.6"/><path d="M9 15l6-3" stroke="#ff5470"/><path d="M9.5 13.5l5-2.5" stroke="#3df5a0"/>',
   filter: '<rect x="4" y="4" width="16" height="16" rx="4" fill="rgba(61,245,160,.18)" stroke="#3df5a0" stroke-width="1.6"/>',

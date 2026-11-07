@@ -6,6 +6,7 @@ import { loadState, saveState, type SavedState } from '../state/storage';
 import { requestDaily } from '../worker/client';
 import './app.css';
 import { h, svgIcon } from './dom';
+import { describeCell } from './describe';
 import { computeCellSize } from './layout';
 import { confirmFire } from './screens/confirm';
 import { showResult } from './screens/result';
@@ -69,7 +70,8 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   const actions = h('div', { class: 'actions' });
   const dock = h('footer', { class: 'dock' }, h('div', { class: 'dock-row' }, tray, counter), actions);
 
-  root.replaceChildren(header, stage, dock);
+  const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
+  root.replaceChildren(header, stage, dock, live);
 
   const board = await BoardView.create(host);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -96,7 +98,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   };
 
   const renderCounter = (n?: number) => {
-    if (g.submitted && n === undefined) n = g.score ?? 0;
+    if (g.submitted && n === undefined) n = viewingSolution ? g.max : (g.score ?? 0);
     counter.textContent = n === undefined ? '' : `💎 ${n}`;
     counter.classList.toggle('is-visible', n !== undefined);
   };
@@ -114,13 +116,22 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   };
 
   // --- acties ---
+  const announce = (msg: string) => { live.textContent = ''; requestAnimationFrame(() => { live.textContent = msg; }); setTimeout(() => { live.textContent = msg; }, 60); };
+  board.onCursor((x, y) => announce(describeCell(g.puzzle, g.placements, x, y)));
   board.onTap((x, y) => {
     if (busy || g.submitted) return;
     const r = tapCell(g, x, y);
-    if (r.rejected) { board.shake(x, y); navigator.vibrate?.(20); return; }
+    if (r.rejected) {
+      board.shake(x, y);
+      navigator.vibrate?.(20);
+      const empty = g.puzzle.cells[y * g.puzzle.width + x].kind === 'empty';
+      announce(empty ? 'Geen spiegels meer over. Tik op een spiegel om hem te draaien of weg te halen.' : 'Hier kan geen spiegel.');
+      return;
+    }
     g = r.state;
     persist();
     render(true);
+    announce(`${describeCell(g.puzzle, g.placements, x, y)}. De straal raakt nu ${trace(g.puzzle, g.placements).score} kristallen.`);
   });
 
   const onReset = () => {
@@ -162,6 +173,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     await board.fire.playSolution(g.solution, trace(g.puzzle, g.solution));
     busy = false;
     renderActions();
+    renderCounter();
   };
 
   const showMine = () => {

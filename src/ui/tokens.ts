@@ -6,7 +6,8 @@ export const COLORS = {
   plate: 0x0e1739,
   etch: 0x2a3a78,
   wall: 0x1c2756,
-  wallEdge: 0x33438a,
+  /** Rand van muren: ≥ 3:1 tegen het veld (WCAG 1.4.11). */
+  wallEdge: 0x5a6db3,
   text: 0xe8ecff,
   muted: 0x8d97c8,
   accent: 0xffb938,
