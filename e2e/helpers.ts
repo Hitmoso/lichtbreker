@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { execSync } from 'node:child_process';
 
 /** Slaat de tutorial over zodat het speelscherm direct bruikbaar is. */
 export async function skipTutorial(page: Page) {
@@ -9,6 +10,23 @@ export async function skipTutorial(page: Page) {
       }));
     }
   });
+}
+
+/**
+ * Zet de beste oplossing van de dagpuzzel van vandaag klaar (nog niet ingediend), zodat "Vuur!" het maximum haalt.
+ * De puzzel wordt in Node berekend (via vite-node, vanwege de JSON-imports), net als in de browser.
+ */
+export async function seedPerfect(page: Page) {
+  const out = execSync('npx vite-node e2e/daily-solution.ts', { encoding: 'utf8' });
+  const daily = JSON.parse(out.trim().split(/\r?\n/).pop()!) as { number: number; solution: unknown[] };
+  await page.addInitScript((d) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('lichtbreker:v1', JSON.stringify({
+      version: 1, tutorialSeen: true, seenElements: ['fixedMirror', 'prism', 'filter'], history: {},
+      current: { number: d.number, placements: d.solution, submitted: false, score: null },
+    }));
+  }, { number: daily.number, solution: daily.solution });
 }
 
 export async function ready(page: Page) {
