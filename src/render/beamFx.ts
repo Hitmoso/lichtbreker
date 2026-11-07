@@ -1,5 +1,6 @@
 import type { Graphics } from 'pixi.js';
 import type { Point, Segment, TraceResult } from '../core/beam';
+import type { Puzzle } from '../core/types';
 import { COLORS } from '../ui/tokens';
 
 export interface BeamStyle { width: number; alpha: number; colorOverride?: number }
@@ -34,20 +35,35 @@ export function pointsAt(segments: readonly Segment[], d: number): { p: Point; c
   return out;
 }
 
+/** Kleinste afstand langs de straal tot het midden van vak i, of Infinity als de straal er niet langskomt. */
+function firstPass(t: TraceResult, width: number, i: number): number {
+  const cx = (i % width) + 0.5, cy = Math.floor(i / width) + 0.5;
+  let best = Infinity;
+  for (const s of t.segments) {
+    const onLine = s.from.x === s.to.x ? cx === s.from.x : cy === s.from.y;
+    const within = cx >= Math.min(s.from.x, s.to.x) && cx <= Math.max(s.from.x, s.to.x)
+      && cy >= Math.min(s.from.y, s.to.y) && cy <= Math.max(s.from.y, s.to.y);
+    if (onLine && within) best = Math.min(best, s.startDist + Math.abs(cx - s.from.x) + Math.abs(cy - s.from.y));
+  }
+  return best;
+}
+
 /** Afstand langs de straal waarop elk geraakt kristal voor het eerst geraakt wordt. */
 export function hitDistances(t: TraceResult, width: number): Map<number, number> {
   const out = new Map<number, number>();
   for (const i of t.hit) {
-    const cx = (i % width) + 0.5, cy = Math.floor(i / width) + 0.5;
-    let best = Infinity;
-    for (const s of t.segments) {
-      const onLine = s.from.x === s.to.x ? cx === s.from.x : cy === s.from.y;
-      const within = cx >= Math.min(s.from.x, s.to.x) && cx <= Math.max(s.from.x, s.to.x)
-        && cy >= Math.min(s.from.y, s.to.y) && cy <= Math.max(s.from.y, s.to.y);
-      if (onLine && within) best = Math.min(best, s.startDist + Math.abs(cx - s.from.x) + Math.abs(cy - s.from.y));
-    }
-    out.set(i, best === Infinity ? 0 : best);
+    const d = firstPass(t, width, i);
+    out.set(i, d === Infinity ? 0 : d);
   }
+  return out;
+}
+
+/** Kristallen waar de straal doorheen gaat, maar die niet meetellen (verkeerde kleur). */
+export function crossedNotCounted(t: TraceResult, p: Puzzle): Set<number> {
+  const out = new Set<number>();
+  p.cells.forEach((c, i) => {
+    if (c.kind === 'crystal' && !t.hit.has(i) && firstPass(t, p.width, i) !== Infinity) out.add(i);
+  });
   return out;
 }
 

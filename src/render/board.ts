@@ -2,7 +2,7 @@ import { Application, BlurFilter, Container, Graphics, Rectangle } from 'pixi.js
 import type { TraceResult } from '../core/beam';
 import type { BeamColor, Cell, ElementKind, MirrorKind, Placement, Puzzle } from '../core/types';
 import { COLORS } from '../ui/tokens';
-import { beamLength, drawBeam, drawGlints } from './beamFx';
+import { beamLength, crossedNotCounted, drawBeam, drawGlints } from './beamFx';
 import { FireFx } from './fire';
 import { sharedBlur } from './filters';
 import { Tweens, easeOut, spring } from './tween';
@@ -49,6 +49,10 @@ export class BoardView {
   private elements = new Container();
   private glowCrystals = new Map<number, Graphics>();
   private crystalNodes = new Map<number, Container>();
+  /** Kristallen liggen boven de straal, zodat te zien is welke wel en niet oplichten. */
+  private crystalLayer = new Container();
+  private dimPlates = new Map<number, Graphics>();
+  private dimmed = new Set<number>();
   private mirrorNodes = new Map<number, Container>();
   private mirrorLayer = new Container();
   private beamGlow = new Graphics();
@@ -83,7 +87,7 @@ export class BoardView {
     this.beamGlow.blendMode = 'add';
     this.glints.blendMode = 'add';
     this.beamLayer.addChild(this.beamGlow, this.beamCore, this.glints);
-    this.root.addChild(this.plate, this.elements, this.beamLayer, this.mirrorLayer, this.fxLayer);
+    this.root.addChild(this.plate, this.elements, this.beamLayer, this.crystalLayer, this.mirrorLayer, this.fxLayer);
     app.stage.addChild(this.root);
     this.fire = new FireFx(this);
     app.stage.eventMode = 'static';
@@ -203,6 +207,7 @@ export class BoardView {
       void this.tweens.to(BEAM_GROW_MS, (k) => { this.progress = k * len; });
     } else this.progress = Infinity;
     this.setLit(t ? t.hit : new Set());
+    this.setDimmed(t && this.puzzle ? crossedNotCounted(t, this.puzzle) : new Set());
   }
 
   /** Zet de gloed van kristallen (geanimeerd). */
@@ -217,7 +222,18 @@ export class BoardView {
     this.lit = new Set(hit);
   }
 
-  hideBeam() { this.trace = null; this.beamGlow.clear(); this.beamCore.clear(); this.glints.clear(); }
+  hideBeam() { this.trace = null; this.beamGlow.clear(); this.beamCore.clear(); this.glints.clear(); this.setDimmed(new Set()); }
+
+  /** Kristallen waar de straal doorheen gaat zonder dat ze tellen: donker plaatje erachter en half doorzichtig. */
+  setDimmed(cells: ReadonlySet<number>) {
+    this.dimmed = new Set(cells);
+    for (const [i, node] of this.crystalNodes) {
+      const on = this.dimmed.has(i);
+      node.alpha = on ? 0.45 : 1;
+      const plate = this.dimPlates.get(i);
+      if (plate) plate.visible = on;
+    }
+  }
 
   crystalNode(i: number) { return this.crystalNodes.get(i); }
   center(i: number) { const w = this.puzzle!.width; return { x: ((i % w) + 0.5) * this.cell, y: (Math.floor(i / w) + 0.5) * this.cell }; }
@@ -298,10 +314,13 @@ export class BoardView {
     }
 
     this.elements.removeChildren().forEach((ch) => ch.destroy({ children: true }));
+    this.crystalLayer.removeChildren().forEach((ch) => ch.destroy({ children: true }));
     this.glowCrystals.clear();
     this.crystalNodes.clear();
+    this.dimPlates.clear();
     p.cells.forEach((cell, i) => this.drawCell(cell, i));
     for (const [i, glow] of this.glowCrystals) glow.alpha = this.lit.has(i) ? 1 : 0;
+    this.setDimmed(this.dimmed);
   }
 
   private drawCell(cell: Cell, i: number) {
@@ -335,8 +354,12 @@ export class BoardView {
         glow.blendMode = 'add';
         glow.alpha = 0;
         const body = crystalShape(new Graphics(), cell.color, cx, cy, r).fill({ color: COLORS.crystal[cell.color], alpha: 0.28 }).stroke({ width: 2, color: COLORS.crystal[cell.color], alpha: 0.95 });
-        node.addChild(glow, body);
-        this.elements.addChild(node);
+        // Donker plaatje dat de straal onder een niet-tellend kristal afdekt.
+        const plate = new Graphics().circle(cx, cy, r * 1.15).fill({ color: COLORS.plate, alpha: 0.9 });
+        plate.visible = false;
+        node.addChild(plate, glow, body);
+        this.crystalLayer.addChild(node);
+        this.dimPlates.set(i, plate);
         this.glowCrystals.set(i, glow);
         this.crystalNodes.set(i, node);
         return;

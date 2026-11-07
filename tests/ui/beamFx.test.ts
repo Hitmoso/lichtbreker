@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fromAscii } from '../../src/core/ascii';
 import { trace } from '../../src/core/beam';
-import { beamLength, hitDistances, pointsAt } from '../../src/render/beamFx';
+import { beamLength, crossedNotCounted, hitDistances, pointsAt } from '../../src/render/beamFx';
 
 describe('beam animation helpers', () => {
   it('finds the distance at which each crystal is first hit', () => {
@@ -19,5 +19,19 @@ describe('beam animation helpers', () => {
     const t = trace(fromAscii(['.o.', '>P.', '.o.'], 1), []);
     expect(beamLength(t.segments)).toBe(2.5);
     expect(pointsAt(t.segments, 2).length).toBe(2);
+  });
+});
+
+describe('crossedNotCounted', () => {
+  it('lists crystals the beam passes that do not count', () => {
+    // wit door r (telt niet), R kleurt rood, daarna o (telt niet) en r (telt)
+    const p = fromAscii(['>rRor', '.....'], 1);
+    const t = trace(p, []);
+    expect([...crossedNotCounted(t, p)].sort()).toEqual([1, 3]);
+    expect([...t.hit]).toEqual([4]);
+  });
+  it('ignores crystals off the beam and counted ones', () => {
+    const p = fromAscii(['>.o', 'r.b'], 1);
+    expect(crossedNotCounted(trace(p, []), p).size).toBe(0);
   });
 });
