@@ -1,2 +1,1 @@
-// Bootstrap; vervangen in latere taken.
-export {};
+import './ui/theme.css';
