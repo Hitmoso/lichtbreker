@@ -38,7 +38,6 @@ export function createEndlessMode(ctx: ModeContext): Mode {
 
   const skipBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => void skip() }, 'Overslaan');
   const nextBtn = h('button', { class: 'btn btn-fire', type: 'button', onClick: () => void next() }, 'Volgende puzzel');
-  const mineBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => round.showMine() }, 'Jouw straal');
 
   const round: Round = new Round(ctx.board, ctx.announce, {
     persist: (g) => {
@@ -51,7 +50,7 @@ export function createEndlessMode(ctx: ModeContext): Mode {
     },
     afterFire: () => openResult(),
     idleButtons: () => [skipBtn],
-    doneButtons: (viewing) => (viewing ? [mineBtn, nextBtn] : [nextBtn]),
+    doneButtons: () => [nextBtn],
   });
   round.onBusyChange((busy) => level.setDisabled(busy));
 

@@ -30,13 +30,12 @@ export function createDailyMode(ctx: ModeContext): DailyMode {
   let date = today();
 
   const resultBtn = h('button', { class: 'btn btn-fire', type: 'button', onClick: () => openResult() }, 'Resultaat');
-  const mineBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => round.showMine() }, 'Jouw straal');
 
   const round: Round = new Round(ctx.board, ctx.announce, {
     persist: (g) => ctx.setSaved(toSaved(ctx.getSaved(), g)),
     afterFire: () => openResult(),
     idleButtons: () => [],
-    doneButtons: (viewing) => (viewing ? [mineBtn, resultBtn] : [resultBtn]),
+    doneButtons: () => [resultBtn],
   });
 
   const openResult = () => {

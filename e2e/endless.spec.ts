@@ -136,3 +136,18 @@ test('tips stop when switching modes or skipping', async ({ page }) => {
   await expect(page.locator('.tip.is-on')).toHaveCount(0, { timeout: 1000 });
   test.info().annotations.push({ type: 'daily had tip', description: String(hadTip) });
 });
+
+test('after firing you can switch back and forth between your beam and the best solution', async ({ page }) => {
+  await openEndless(page);
+  await placeOneMirror(page);
+  await fire(page);
+  await pause(page);
+  await page.getByRole('button', { name: 'Bekijk beste oplossing' }).click();
+  // Eerste keer: rustig afgespeeld, daarna verschijnt "Jouw straal".
+  await page.getByRole('button', { name: 'Jouw straal' }).click({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Beste oplossing' }).click({ timeout: 2_000 });
+  // Tweede keer: meteen terug, zonder animatie.
+  await page.getByRole('button', { name: 'Jouw straal' }).click({ timeout: 1_000 });
+  await expect(page.getByRole('button', { name: 'Beste oplossing' })).toBeVisible({ timeout: 1_000 });
+  await expect(page.getByRole('button', { name: 'Volgende puzzel' })).toBeVisible();
+});

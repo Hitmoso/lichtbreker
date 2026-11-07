@@ -9,6 +9,11 @@ import { spring } from './tween';
 
 const CELLS_PER_SEC = 6;
 const MAX_MS = 3000;
+/** Beste oplossing: rustiger, zodat te volgen is waar elke spiegel komt. */
+const SOLUTION_MIRROR_MS = 550;
+const SOLUTION_PAUSE_MS = 300;
+const SOLUTION_CELLS_PER_SEC = CELLS_PER_SEC;
+const SOLUTION_MAX_MS = MAX_MS;
 
 const EMPTY: TraceResult = { segments: [], hit: new Set(), score: 0 };
 
@@ -88,11 +93,13 @@ export class FireFx {
     for (let k = 1; k <= solution.length; k++) {
       b.update(solution.slice(0, k), EMPTY, { animate: true });
       b.hideBeam();
-      await b.tweens.wait(reduced ? 0 : 280);
+      if (!reduced) this.ring(solution[k - 1]);
+      await b.tweens.wait(reduced ? 0 : SOLUTION_MIRROR_MS);
     }
     if (reduced) { b.setTrace(t); return; }
+    await b.tweens.wait(SOLUTION_PAUSE_MS);
     const len = beamLength(t.segments);
-    const dur = Math.min(MAX_MS, (len / CELLS_PER_SEC) * 1000);
+    const dur = Math.min(SOLUTION_MAX_MS, (len / SOLUTION_CELLS_PER_SEC) * 1000);
     const hits = hitDistances(t, b.currentPuzzle!.width);
     const lit = new Set<number>();
     await b.tweens.to(dur, (k) => {
@@ -115,6 +122,16 @@ export class FireFx {
       this.head.circle(p.x * c, p.y * c, c * 0.28).fill({ color: COLORS.beam[color], alpha: 0.9 });
       this.head.circle(p.x * c, p.y * c, c * 0.12).fill({ color: 0xffffff });
     }
+  }
+
+  /** Korte ring rond het vak waar een spiegel van de oplossing verschijnt. */
+  private ring(p: Placement) {
+    const b = this.board;
+    const c = b.cellSize;
+    const ring = new Graphics().circle(0, 0, c * 0.48).stroke({ width: 2.5, color: COLORS.accent });
+    ring.position.set((p.x + 0.5) * c, (p.y + 0.5) * c);
+    b.fxLayer.addChild(ring);
+    void b.tweens.to(560, (k) => { ring.scale.set(0.6 + k * 0.5); ring.alpha = 1 - k; }).then(() => ring.destroy());
   }
 
   private clearProgress() { this.glow.clear(); this.core.clear(); this.head.clear(); }

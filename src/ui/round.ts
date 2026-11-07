@@ -13,8 +13,8 @@ export interface RoundHooks {
   afterFire(g: GameState): void;
   /** Extra knoppen vóór Opnieuw/Vuur! (bijv. Overslaan). */
   idleButtons(): HTMLElement[];
-  /** Knoppen na indienen (bijv. Resultaat of Volgende puzzel). */
-  doneButtons(viewingSolution: boolean): HTMLElement[];
+  /** Knoppen na indienen, naast de wisselknop (bijv. Resultaat of Volgende puzzel). */
+  doneButtons(): HTMLElement[];
 }
 
 /**
@@ -38,6 +38,9 @@ export class Round {
     for (const l of this.busyListeners) l(v);
   }
   private viewing = false;
+  /** Is de beste oplossing van deze ronde al eens afgespeeld? Dan wisselt de knop meteen. */
+  private solutionPlayed = false;
+  private toggleBtn = h('button', { class: 'btn btn-ghost', type: 'button', onClick: () => (this.viewing ? this.showMine() : void this.showSolution()) });
   private active = false;
 
   constructor(private board: BoardView, private announce: (msg: string) => void, private hooks: RoundHooks) {
@@ -56,6 +59,7 @@ export class Round {
     if (this.active) quiet();
     this.g = g;
     this.viewing = false;
+    this.solutionPlayed = false;
     this.isBusy = false;
     if (this.active) this.takeBoard();
     this.refresh();
@@ -134,11 +138,17 @@ export class Round {
   async showSolution(): Promise<void> {
     const g = this.g;
     if (!g || this.isBusy) return;
-    this.isBusy = true;
     this.viewing = true;
+    if (this.solutionPlayed) {
+      // Al eens afgespeeld: meteen wisselen, zodat je snel kunt vergelijken.
+      this.render(false);
+      return;
+    }
+    this.isBusy = true;
     this.actions.replaceChildren();
     await this.board.fire.playSolution(g.solution, trace(g.puzzle, g.solution));
     if (this.g !== g) return;
+    this.solutionPlayed = true;
     this.isBusy = false;
     this.refresh();
   }
@@ -185,7 +195,10 @@ export class Round {
 
   private renderActions() {
     const g = this.g!;
-    if (g.submitted) this.actions.replaceChildren(...this.hooks.doneButtons(this.viewing));
+    if (g.submitted) {
+      this.toggleBtn.textContent = this.viewing ? 'Jouw straal' : 'Beste oplossing';
+      this.actions.replaceChildren(this.toggleBtn, ...this.hooks.doneButtons());
+    }
     else this.actions.replaceChildren(...this.hooks.idleButtons(), this.resetBtn, this.fireBtn);
     this.actions.classList.toggle('has-extra', !g.submitted && this.hooks.idleButtons().length > 0);
     this.resetBtn.disabled = this.isBusy || g.placements.length === 0;
