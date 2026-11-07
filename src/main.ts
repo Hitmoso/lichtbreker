@@ -22,7 +22,7 @@ async function onboarding(ctx: AppContext) {
 
 void startApp(document.getElementById('app')!, {
   onHelp: (g) => showHelp(g.puzzle),
-  onStats: (saved, todayNumber) => showStats(computeStats(saved.history, todayNumber)),
+  onStats: (saved, todayNumber) => showStats(computeStats(saved.history, todayNumber), saved.endless.stats),
   onPuzzle: (ctx) => void onboarding(ctx),
 }).then((ctx) => {
   if (import.meta.env.DEV) Object.assign(window, { __lb: ctx });

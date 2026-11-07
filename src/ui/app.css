@@ -295,3 +295,12 @@
   .actions.has-extra { grid-auto-flow: row; grid-template-columns: 1fr 1fr; }
   .actions.has-extra > .btn:first-child { grid-column: 1 / -1; }
 }
+
+/* ---------- statistieken oneindig ---------- */
+.endless-stats { margin: 6px 0 16px; }
+.es-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.es-table th, .es-table td { padding: 8px 6px; text-align: right; }
+.es-table th:first-child { text-align: left; font-weight: 600; }
+.es-table thead th { color: var(--muted); font-weight: 400; font-size: 13px; }
+.es-table tbody tr + tr { border-top: 1px solid var(--line); }
+.es-table td { font: 700 16px/1 var(--font-display); color: var(--beam-white); }

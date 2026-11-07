@@ -102,3 +102,20 @@ test('"Meer spelen" in the daily result opens endless', async ({ page }) => {
   await expect(page.getByRole('radio', { name: 'Oneindig' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radiogroup', { name: 'Moeilijkheid' })).toBeVisible();
 });
+
+test('stats show an Oneindig block only after playing endless', async ({ page }) => {
+  await page.getByRole('button', { name: 'Statistieken' }).click();
+  const stats = page.getByRole('dialog', { name: 'Statistieken' });
+  await expect(stats).toBeVisible();
+  await expect(stats.getByRole('heading', { name: 'Oneindig' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await openEndless(page);
+  await placeOneMirror(page);
+  await fire(page);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Statistieken' }).click();
+  const block = stats.locator('.endless-stats');
+  await expect(stats.getByRole('heading', { name: 'Oneindig' })).toBeVisible();
+  await expect(block).toContainText('Normaal');
+  await expect(block.locator('.es-played')).toHaveText('1');
+});

@@ -25,6 +25,15 @@ In de ontwikkelserver kun je een andere dag nabootsen met `?date=YYYY-MM-DD`.
 - Een dag vastzetten of met de hand maken: zet de puzzel in `src/data/overrides.json` onder de datum (`"2026-12-24": { ...Puzzle }`). Een ongeldige override wordt genegeerd (met een waarschuwing in de console). `fromAscii` in `src/core/ascii.ts` maakt het schrijven makkelijk.
 - `src/data/fallback.json` wordt gebruikt als de generator geen goede puzzel vindt.
 
+## Oneindige modus en moeilijkheid aanpassen
+
+Met de schakelaar **Dagelijks | Oneindig** speel je naast de dagpuzzel zoveel puzzels als je wilt, op Makkelijk, Normaal of Moeilijk. Oneindige puzzels tellen niet mee voor de dagreeks.
+
+- De niveaus staan in `DIFFICULTIES` in `src/config.ts`: rastermaat, aantal spiegels, muren, kristallen, extra elementen en het toegestane maximum. Pas de getallen aan; er is geen andere code nodig.
+- `DAILY` (de dagpuzzel) staat daar los van. **Pas `DAILY` na lancering nooit aan**: dan verschuiven de dagpuzzels. De test "daily puzzles do not shift" bewaakt dat.
+- Na een aanpassing: `npm test`. `tests/core/difficulties.test.ts` genereert per niveau 100 puzzels en meldt het als een combinatie geen goede of te trage puzzels oplevert (bijvoorbeeld te veel kristallen voor een klein raster).
+- Elk niveau heeft een reservepuzzel in `src/data/fallback-<niveau>.json` (Normaal gebruikt `fallback.json`). Verander je de rastermaat van een niveau, maak dan ook een nieuwe reservepuzzel van die maat.
+
 ## Publiceren
 
 `.github/workflows/pages.yml` test, bouwt en publiceert `dist/` naar GitHub Pages bij elke push naar `main`. Zet in de repo-instellingen Pages op "GitHub Actions".
