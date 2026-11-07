@@ -3,6 +3,7 @@ import type { TraceResult } from '../core/beam';
 import type { BeamColor, Cell, ElementKind, MirrorKind, Placement, Puzzle } from '../core/types';
 import { COLORS } from '../ui/tokens';
 import { beamLength, drawBeam, drawGlints } from './beamFx';
+import { FireFx } from './fire';
 import { Tweens, easeOut, spring } from './tween';
 
 const BEAM_GROW_MS = 150;
@@ -41,6 +42,7 @@ export class BoardView {
   readonly root = new Container();
   readonly beamLayer = new Container();
   readonly fxLayer = new Container();
+  readonly fire: FireFx;
   private plate = new Graphics();
   private elements = new Container();
   private glowCrystals = new Map<number, Graphics>();
@@ -70,6 +72,7 @@ export class BoardView {
     this.beamLayer.addChild(this.beamGlow, this.beamCore, this.glints);
     this.root.addChild(this.plate, this.elements, this.beamLayer, this.mirrorLayer, this.fxLayer);
     app.stage.addChild(this.root);
+    this.fire = new FireFx(this);
     app.stage.eventMode = 'static';
     app.stage.on('pointertap', (e) => {
       if (!this.interactive || !this.puzzle) return;
@@ -96,6 +99,8 @@ export class BoardView {
   }
 
   get cellSize() { return this.cell; }
+  get currentPuzzle() { return this.puzzle; }
+  get reducedMotion() { return this.reduced; }
 
   setReducedMotion(on: boolean) { this.reduced = on; this.tweens.reduced = on; }
   onTap(cb: (x: number, y: number) => void) { this.tapCb = cb; }

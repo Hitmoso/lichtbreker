@@ -1,5 +1,5 @@
 import type { Graphics } from 'pixi.js';
-import type { Point, Segment } from '../core/beam';
+import type { Point, Segment, TraceResult } from '../core/beam';
 import { COLORS } from '../ui/tokens';
 
 export interface BeamStyle { width: number; alpha: number; colorOverride?: number }
@@ -30,6 +30,23 @@ export function pointsAt(segments: readonly Segment[], d: number): { p: Point; c
   for (const s of segments) {
     if (d < s.startDist || d > s.endDist || s.endDist === s.startDist) continue;
     out.push({ p: lerp(s.from, s.to, (d - s.startDist) / (s.endDist - s.startDist)), color: s.color });
+  }
+  return out;
+}
+
+/** Afstand langs de straal waarop elk geraakt kristal voor het eerst geraakt wordt. */
+export function hitDistances(t: TraceResult, width: number): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const i of t.hit) {
+    const cx = (i % width) + 0.5, cy = Math.floor(i / width) + 0.5;
+    let best = Infinity;
+    for (const s of t.segments) {
+      const onLine = s.from.x === s.to.x ? cx === s.from.x : cy === s.from.y;
+      const within = cx >= Math.min(s.from.x, s.to.x) && cx <= Math.max(s.from.x, s.to.x)
+        && cy >= Math.min(s.from.y, s.to.y) && cy <= Math.max(s.from.y, s.to.y);
+      if (onLine && within) best = Math.min(best, s.startDist + Math.abs(cx - s.from.x) + Math.abs(cy - s.from.y));
+    }
+    out.set(i, best === Infinity ? 0 : best);
   }
   return out;
 }

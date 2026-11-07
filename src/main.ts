@@ -27,6 +27,6 @@ async function demo() {
     board.update(g.placements, trace(g.puzzle, g.placements));
   });
   addEventListener('resize', fit);
-  Object.assign(window, { __lb: { get state() { return g; }, board } });
+  Object.assign(window, { __lb: { get state() { return g; }, board, trace } });
 }
 void demo();
