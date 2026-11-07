@@ -1,10 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { FALLBACK, generate, meetsQuality } from '../../src/core/generator';
+import { hashSeed } from '../../src/core/rng';
 import { solve } from '../../src/core/solver';
 
 describe('generate', () => {
   it('is deterministic per seed', () => {
     expect(JSON.stringify(generate(42))).toBe(JSON.stringify(generate(42)));
+  });
+
+  it('daily puzzles do not shift', () => {
+    // Vingerafdruk van de gegenereerde dagpuzzels; mag nooit veranderen na lancering.
+    const prints = [1, 2, 3, 42, 365].map((s) => hashSeed(JSON.stringify(generate(s).puzzle)));
+    expect(prints).toMatchInlineSnapshot(`
+      [
+        106012977,
+        1856946006,
+        22189951,
+        3506985471,
+        672714433,
+      ]
+    `);
   });
 
   it('fallback meets the quality bar', () => {
