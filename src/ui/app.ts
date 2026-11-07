@@ -1,5 +1,5 @@
 import { trace } from '../core/beam';
-import { amsterdamDate } from '../core/daily';
+import { amsterdamDate, msUntilNextPuzzle } from '../core/daily';
 import { BoardView } from '../render/board';
 import { resetPlacements, startGame, submit, tapCell, toSaved, type GameState } from '../state/game';
 import { loadState, saveState, type SavedState } from '../state/storage';
@@ -27,7 +27,8 @@ export function today(): string {
 export interface AppHooks {
   onHelp?: (g: GameState) => void;
   onStats?: (saved: SavedState, g: GameState) => void;
-  onLoaded?: (ctx: AppContext) => void;
+  /** Na elke (her)laadbeurt van een puzzel. */
+  onPuzzle?: (ctx: AppContext) => void;
 }
 
 export interface AppContext {
@@ -186,11 +187,24 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     fit();
     render(false);
     persist();
+    scheduleDayCheck();
+    if (g.submitted) openResult();
+    hooks.onPuzzle?.(ctx);
   };
 
-  await load();
-  addEventListener('resize', fit);
-  new ResizeObserver(fit).observe(root);
+  // --- dagwissel ---
+  let dayTimer: ReturnType<typeof setTimeout> | undefined;
+  const checkDay = () => {
+    if (today() === date) return scheduleDayCheck();
+    if (busy) { dayTimer = setTimeout(checkDay, 2000); return; }
+    void load();
+  };
+  function scheduleDayCheck() {
+    clearTimeout(dayTimer);
+    // setTimeout tot middernacht kan uitlopen in een slapend tabblad; visibilitychange vangt dat op.
+    dayTimer = setTimeout(checkDay, Math.min(msUntilNextPuzzle(new Date()) + 1000, 2 ** 31 - 1));
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
 
   const ctx: AppContext = {
     board,
@@ -199,7 +213,9 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     setSaved(s) { saved = s; saveState(storage, saved); },
     reload: load,
   };
-  if (g.submitted) openResult();
-  hooks.onLoaded?.(ctx);
+
+  await load();
+  addEventListener('resize', fit);
+  new ResizeObserver(fit).observe(root);
   return ctx;
 }
