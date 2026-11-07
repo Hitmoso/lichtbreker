@@ -12,16 +12,22 @@ export interface GameState extends DailyInput {
   score: number | null;
 }
 
+/**
+ * Zet een ronde terug uit opgeslagen plaatsingen. Ongeldige plaatsingen → lege, niet-ingediende ronde.
+ * De score wordt altijd opnieuw berekend (opslag is niet te vertrouwen).
+ */
+export function resumeGame(input: DailyInput, placements: unknown, submitted: boolean): GameState {
+  const base: GameState = { ...input, placements: [], submitted: false, score: null };
+  const valid = validatePlacements(input.puzzle, placements);
+  if (!valid) return base;
+  if (submitted) return { ...base, placements: valid, submitted: true, score: trace(input.puzzle, valid).score };
+  return { ...base, placements: valid };
+}
+
 export function startGame(saved: SavedState, daily: DailyInput): GameState {
-  const base: GameState = { ...daily, placements: [], submitted: false, score: null };
   const cur = saved.current;
-  if (!cur || cur.number !== daily.number) return base;
-  const placements = validatePlacements(daily.puzzle, cur.placements);
-  if (!placements) return base;
-  if (cur.submitted) {
-    return { ...base, placements, submitted: true, score: trace(daily.puzzle, placements).score };
-  }
-  return { ...base, placements };
+  if (!cur || cur.number !== daily.number) return resumeGame(daily, [], false);
+  return resumeGame(daily, cur.placements, cur.submitted);
 }
 
 /** Leeg → '/' → '\' → leeg. */

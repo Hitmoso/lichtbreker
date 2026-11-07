@@ -1,4 +1,5 @@
 import { ELEMENT_KINDS, type ElementKind, type Placement } from '../core/types';
+import { defaultEndless, parseEndless, type EndlessState } from './endless';
 
 export const STORAGE_KEY = 'lichtbreker:v1';
 
@@ -16,10 +17,12 @@ export interface SavedState {
   current: SavedCurrent | null;
   /** Sleutel = puzzelnummer. */
   history: Record<string, { score: number; max: number }>;
+  /** Oneindige modus; los van de dagpuzzel. */
+  endless: EndlessState;
 }
 
 export const defaultState = (): SavedState => ({
-  version: 1, tutorialSeen: false, seenElements: [], current: null, history: {},
+  version: 1, tutorialSeen: false, seenElements: [], current: null, history: {}, endless: defaultEndless(),
 });
 
 const isNat = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
@@ -62,6 +65,7 @@ export function loadState(storage: Storage | null): SavedState {
       ? [...new Set(o.seenElements.filter((k): k is ElementKind => ELEMENT_KINDS.includes(k as ElementKind)))]
       : [],
     current: parseCurrent(o.current),
+    endless: parseEndless(o.endless),
     history,
   };
 }
