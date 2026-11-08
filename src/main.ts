@@ -1,6 +1,8 @@
 import './ui/theme.css';
+import { decodeLevel } from './core/levelcode';
 import { computeStats } from './state/stats';
 import { startApp, type AppContext } from './ui/app';
+import { showLevelError } from './ui/screens/levelError';
 import { elementKinds, showHelp } from './ui/screens/help';
 import { showStats } from './ui/screens/stats';
 import { showTutorial } from './ui/screens/tutorial';
@@ -22,15 +24,27 @@ async function onboarding(ctx: AppContext) {
   await showFirstSeenTips(ctx.board, document.querySelector('.stage')!, fresh);
 }
 
-// Geluidsproef (alleen in dev): ?geluid
-if (import.meta.env.DEV && new URLSearchParams(location.search).has('geluid')) {
+const params = new URLSearchParams(location.search);
+const root = document.getElementById('app')!;
+
+if (params.has('bouwer')) {
+  // Puzzelbouwer: eigen chunk, alleen geladen als je hem opent (ook in productie).
+  void import('./editor').then((m) => m.mount(root));
+} else if (import.meta.env.DEV && params.has('geluid')) {
+  // Geluidsproef (alleen in dev): ?geluid
   void import('./audio/proef').then((m) => m.mount());
 } else {
-  void startApp(document.getElementById('app')!, {
-    onHelp: (g) => showHelp(g.puzzle),
-    onStats: (saved, todayNumber) => showStats(computeStats(saved.history, todayNumber), saved.endless.stats),
-    onPuzzle: (ctx) => void onboarding(ctx),
-  }).then((ctx) => {
-    if (import.meta.env.DEV) Object.assign(window, { __lb: ctx });
-  });
+  const code = params.get('level');
+  const level = code === null ? undefined : decodeLevel(code);
+  if (level === null) {
+    showLevelError(root);
+  } else {
+    void startApp(root, {
+      onHelp: (g) => showHelp(g.puzzle),
+      onStats: (saved, todayNumber) => showStats(computeStats(saved.history, todayNumber), saved.endless.stats),
+      onPuzzle: (ctx) => void onboarding(ctx),
+    }, { level }).then((ctx) => {
+      if (import.meta.env.DEV) Object.assign(window, { __lb: ctx });
+    });
+  }
 }

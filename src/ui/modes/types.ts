@@ -3,7 +3,7 @@ import type { BoardView } from '../../render/board';
 import type { SavedState } from '../../state/storage';
 import type { Round } from '../round';
 
-export type ModeName = 'daily' | 'endless';
+export type ModeName = 'daily' | 'endless' | 'level';
 
 /** Wat een modus van de app krijgt. */
 export interface ModeContext {

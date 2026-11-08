@@ -7,6 +7,8 @@ import { h, svgIcon } from './dom';
 import { fitCell } from './layout';
 import { createDailyMode, type DailyMode } from './modes/daily';
 import { createEndlessMode } from './modes/endless';
+import { createLevelMode, goHome } from './modes/level';
+import type { Puzzle } from '../core/types';
 import type { Mode, ModeContext, ModeName } from './modes/types';
 import { segmented } from './segmented';
 import { closeSheet } from './sheet';
@@ -40,7 +42,22 @@ export interface AppContext {
   switchTo(mode: ModeName): Promise<void>;
 }
 
-export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise<AppContext> {
+export interface AppOptions {
+  /** Gedeeld level (?level=…): start in de modus Eigen level, zonder Dagelijks | Oneindig. */
+  level?: Puzzle;
+}
+
+/** 5 tikken binnen 2 s op het logo → de (verborgen) bouwer. */
+function secretEntrance(el: HTMLElement) {
+  let taps: number[] = [];
+  el.addEventListener('click', () => {
+    const now = performance.now();
+    taps = [...taps.filter((t) => now - t < 2000), now];
+    if (taps.length >= 5) location.search = '?bouwer';
+  });
+}
+
+export async function startApp(root: HTMLElement, hooks: AppHooks = {}, opts: AppOptions = {}): Promise<AppContext> {
   const storage = safeStorage();
   let saved = loadState(storage);
 
@@ -58,8 +75,11 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     soundBtn.replaceChildren(svgIcon(sound.on ? SOUND_ON : SOUND_OFF, sound.on ? 'Geluid aan' : 'Geluid uit'));
   };
   paintSound();
+  const brand = h('h1', { class: 'brand' }, 'Lichtbreker');
+  secretEntrance(brand);
+  const homeBtn = opts.level ? h('button', { class: 'btn btn-ghost btn-home', type: 'button', onClick: goHome }, 'Naar het spel') : null;
   const header = h('header', { class: 'top' },
-    h('h1', { class: 'brand' }, 'Lichtbreker'), numEl, h('span', { class: 'top-spacer' }), helpBtn, soundBtn, statsBtn);
+    brand, numEl, h('span', { class: 'top-spacer' }), homeBtn, helpBtn, soundBtn, statsBtn);
 
   const host = h('div', { class: 'board-host' });
   const loading = h('p', { class: 'loading', role: 'status', hidden: true }, 'Licht wordt gebroken…');
@@ -73,7 +93,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   const controlsSlot = h('div', { class: 'mode-controls' });
   const dockSlot = h('div', { class: 'dock-slot' });
   const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
-  root.replaceChildren(header, h('nav', { class: 'mode-switch' }, modeSwitch.el), controlsSlot, stage, dockSlot, live);
+  root.replaceChildren(header, h('nav', { class: 'mode-switch', hidden: !!opts.level }, modeSwitch.el), controlsSlot, stage, dockSlot, live);
 
   const board = await BoardView.create(host);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -103,17 +123,18 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   };
 
   const daily: DailyMode = createDailyMode(modeCtx);
-  const modes: Record<ModeName, Mode> = { daily, endless: createEndlessMode(modeCtx) };
-  let active: Mode = daily;
+  const modes: Partial<Record<ModeName, Mode>> = { daily, endless: createEndlessMode(modeCtx) };
+  if (opts.level) modes.level = createLevelMode(modeCtx, opts.level);
+  let active: Mode = modes.level ?? daily;
   // Tijdens een animatie of laden kan er niet gewisseld worden.
-  for (const m of Object.values(modes)) m.round.onBusyChange(() => modeSwitch.setDisabled(active.round.busy));
+  for (const m of Object.values(modes)) m!.round.onBusyChange(() => modeSwitch.setDisabled(active.round.busy));
 
   board.onTap((x, y) => active.round.tap(x, y));
   board.onCursor((x, y) => active.round.describe(x, y));
 
   async function switchTo(name: ModeName) {
     const next = modes[name];
-    if (next === active || active.round.busy) { modeSwitch.set(active.name); return; }
+    if (!next || next === active || active.round.busy) { modeSwitch.set(active.name); return; }
     modeSwitch.set(name);
     closeSheet();
     quiet();
@@ -134,8 +155,8 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
     switchTo,
   };
 
-  dockSlot.replaceChildren(daily.round.dock);
-  await daily.enter();
+  dockSlot.replaceChildren(active.round.dock);
+  await active.enter();
   addEventListener('resize', fit);
   new ResizeObserver(fit).observe(root);
   return ctx;

@@ -246,6 +246,7 @@
 
 /* ---------- schakelaars ---------- */
 .mode-switch { display: flex; justify-content: center; padding-bottom: 8px; }
+.mode-switch[hidden] { display: none; }
 .mode-controls { display: flex; justify-content: center; }
 .mode-controls:empty { display: none; }
 .endless-controls { padding-bottom: 6px; }
@@ -319,3 +320,9 @@
 .es-table thead th { color: var(--muted); font-weight: 400; font-size: 13px; }
 .es-table tbody tr + tr { border-top: 1px solid var(--line); }
 .es-table td { font: 700 16px/1 var(--font-display); color: var(--beam-white); }
+
+/* ---------- eigen level ---------- */
+.btn-home { min-height: 36px; padding: 0 14px; font-size: 14px; }
+.level-error { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 24px; max-width: 360px; }
+.level-error-title { margin: 0 0 6px; font: 700 20px/1.25 var(--font-display); }
+.level-error .btn { min-width: 200px; }
