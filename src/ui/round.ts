@@ -125,10 +125,14 @@ export class Round {
     if (!start || this.isBusy || start.submitted) return;
     this.isBusy = true;
     this.renderActions();
-    const yes = await confirmFire();
-    // Intussen een andere ronde geladen (dagwissel, overslaan)? Dan niets indienen.
-    if (this.g !== start) return;
-    if (!yes) { this.isBusy = false; this.renderActions(); return; }
+    // Alle spiegels gebruikt: meteen vuren. Anders eerst vragen of het echt zo moet.
+    const left = start.puzzle.mirrors - start.placements.length;
+    if (left > 0) {
+      const yes = await confirmFire(left);
+      // Intussen een andere ronde geladen (dagwissel, overslaan)? Dan niets indienen.
+      if (this.g !== start) return;
+      if (!yes) { this.isBusy = false; this.renderActions(); return; }
+    }
     this.sfx.charge();
     const g = submit(start);
     this.g = g;

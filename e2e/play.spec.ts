@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { placeOneMirror, ready, skipTutorial } from './helpers';
+import { placeAllMirrors, placeOneMirror, ready, skipTutorial } from './helpers';
 
 test('a full round: place, fire, result, reload', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -62,4 +62,26 @@ test('a quick double tap on Vuur! does not confirm by accident', async ({ page }
   const history = await page.evaluate(() => JSON.parse(localStorage.getItem('lichtbreker:v1')!).history);
   expect(Object.keys(history)).toHaveLength(0);
   await expect(page.getByRole('button', { name: 'Ja, vuur!' })).toBeVisible();
+});
+
+test('with every mirror placed, Vuur! fires right away', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await skipTutorial(page);
+  await ready(page);
+  await placeAllMirrors(page);
+  await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Resultaat' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Ja, vuur!' })).toHaveCount(0);
+});
+
+test('with mirrors left, the confirmation says how many', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await skipTutorial(page);
+  await ready(page);
+  await placeOneMirror(page);
+  const total = await page.locator('.tray-mirror').count();
+  await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Bevestig vuren' });
+  await expect(dialog).toContainText('Nog spiegels over');
+  await expect(dialog).toContainText(`Je hebt nog ${total - 1} spiegels over`);
 });

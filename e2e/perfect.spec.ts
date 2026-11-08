@@ -3,8 +3,12 @@ import { ready, seedPerfect } from './helpers';
 
 async function fire(page: Page) {
   await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
-  await page.waitForTimeout(450);
-  await page.getByRole('button', { name: 'Ja, vuur!' }).click();
+  // Gebruikt de oplossing niet alle spiegels, dan komt er eerst een vraag.
+  const left = (await page.locator('.tray-mirror').count()) - (await page.locator('.tray-mirror.is-used').count());
+  if (left > 0) {
+    await page.waitForTimeout(450);
+    await page.getByRole('button', { name: 'Ja, vuur!' }).click();
+  }
 }
 
 test('a perfect round celebrates', async ({ page }) => {

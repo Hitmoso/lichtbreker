@@ -215,3 +215,92 @@ export function chordCloud(k: Kit, at: number, o: VoiceOpts & { freqs: number[] 
   end = Math.max(end, partial(k, bus, o.freqs[0] / 2, at, o.gain * 0.35, 0.08, decay * 1.1));
   return { gain: bus, end };
 }
+
+/** Oplaadzoem: een zuivere toon die van laag naar hoog glijdt, met een zachte octaaf eronder. */
+export function laserCharge(k: Kit, at: number, o: VoiceOpts): VoiceOut {
+  const bus = voiceBus(k);
+  const lp = k.ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 3200;
+  lp.connect(bus);
+  for (const [type, mul, gr] of [['sine', 1, 1], ['triangle', 0.5, 0.35]] as const) {
+    const osc = k.ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(o.freq * 0.35 * mul, at);
+    osc.frequency.exponentialRampToValueAtTime(o.freq * 2 * mul, at + 0.42);
+    const g = k.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(o.gain * gr, at + 0.38);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.6);
+    osc.connect(g).connect(lp);
+    osc.start(at);
+    osc.stop(at + 0.65);
+  }
+  return { gain: bus, end: at + 0.6 };
+}
+
+/** Omgekeerde bel: glasklank die aanzwelt en dan loslaat, als licht dat wordt ingeademd. */
+export function glassSwell(k: Kit, at: number, o: VoiceOpts): VoiceOut {
+  const bus = voiceBus(k);
+  const rise = 0.4, fall = 0.35;
+  [1, 2.76, 5.4].forEach((r, i) => {
+    const f = o.freq * r;
+    if (f > MAX_PARTIAL_HZ) return;
+    const osc = k.ctx.createOscillator();
+    osc.frequency.value = f;
+    const g = k.ctx.createGain();
+    const peak = o.gain * tilt(o.freq) * [1, 0.4, 0.18][i];
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + rise);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + rise + fall);
+    osc.connect(g).connect(bus);
+    osc.start(at);
+    osc.stop(at + rise + fall + 0.05);
+  });
+  click(k, bus, at + rise, o.gain * 0.3, 4000);
+  return { gain: bus, end: at + rise + fall };
+}
+
+/** Kristallen die zich opladen: een snelle, oplopende reeks glastikjes. */
+export function strum(k: Kit, at: number, o: VoiceOpts & { freqs: number[] }): VoiceOut {
+  const bus = voiceBus(k);
+  let end = at;
+  o.freqs.forEach((f, i) => {
+    const t = at + i * 0.045;
+    const p = o.gain * tilt(f) * (0.6 + 0.4 * (i / o.freqs.length));
+    end = Math.max(end, partial(k, bus, f, t, p, 0.003, 0.5 * TONE.decay));
+    if (f * 2.76 < MAX_PARTIAL_HZ) end = Math.max(end, partial(k, bus, f * 2.76, t, p * 0.3, 0.003, 0.2 * TONE.decay));
+    click(k, bus, t, p * 0.4, Math.min(6000, f * 3));
+  });
+  return { gain: bus, end };
+}
+
+/** Lancering: zachte, lage dreun met een heldere tik en een korte glinstering erachteraan. */
+export function launch(k: Kit, at: number, o: VoiceOpts): VoiceOut {
+  const bus = voiceBus(k);
+  const osc = k.ctx.createOscillator();
+  osc.frequency.setValueAtTime(o.freq, at);
+  osc.frequency.exponentialRampToValueAtTime(o.freq * 0.5, at + 0.25);
+  const g = k.ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(o.gain, at + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.45);
+  osc.connect(g).connect(bus);
+  osc.start(at);
+  osc.stop(at + 0.5);
+  click(k, bus, at, o.gain * 0.6, 3500, 0.008);
+  // Glinstering: hoge ruis die wegsterft.
+  const src = k.ctx.createBufferSource();
+  src.buffer = k.noise;
+  const hp = k.ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 5000;
+  const ng = k.ctx.createGain();
+  ng.gain.setValueAtTime(0.0001, at + 0.02);
+  ng.gain.linearRampToValueAtTime(o.gain * 0.12, at + 0.06);
+  ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.5);
+  src.connect(hp).connect(ng).connect(bus);
+  src.start(at, Math.random() * 0.4);
+  src.stop(at + 0.55);
+  return { gain: bus, end: at + 0.5 };
+}

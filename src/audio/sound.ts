@@ -2,7 +2,7 @@ import { SuspendGate } from './gate';
 import { VoicePool } from './pool';
 import { readSoundOn, writeSoundOn } from './pref';
 import { CHORD_STEPS, hitStep, noteFreq } from './scale';
-import { bell, breath, chordCloud, glass, impulse, noiseBuffer, pling, slideDown, tick, tok, TONE, type Kit, type VoiceOut } from './voices';
+import { bell, breath, chordCloud, glass, glassSwell, impulse, laserCharge, launch, noiseBuffer, pling, slideDown, strum, tick, tok, TONE, type Kit, type VoiceOut } from './voices';
 
 /** Alle geluiden van het spel, als namen. De ronde kent alleen dit. */
 export interface Sfx {
@@ -23,6 +23,16 @@ export const silentSfx: Sfx = {
   place: noop, rotate: noop, remove: noop, reject: noop, reset: noop, charge: noop,
   hit: noop, perfectNote: noop, bloom: noop, solutionMirror: noop,
 };
+
+/** Kandidaten voor het vuurgeluid; de geluidsproef laat ze naast elkaar horen. */
+export const FIRE_SOUNDS = {
+  adem: (k: Kit, at: number) => breath(k, at, { freq: noteFreq(-5), gain: 0.35 }),
+  oplaadzoem: (k: Kit, at: number) => laserCharge(k, at, { freq: noteFreq(0), gain: 0.3 }),
+  glasgolf: (k: Kit, at: number) => glassSwell(k, at, { freq: noteFreq(0), gain: 0.28 }),
+  kristalreeks: (k: Kit, at: number) => strum(k, at, { freq: 0, gain: 0.45, freqs: [0, 2, 3, 5, 7].map(noteFreq) }),
+  lancering: (k: Kit, at: number) => launch(k, at, { freq: noteFreq(-10), gain: 0.8 }),
+} satisfies Record<string, (k: Kit, at: number) => VoiceOut>;
+export type FireSound = keyof typeof FIRE_SOUNDS;
 
 const SOFT = 0.5; // −6 dB
 const PERFECT_MAX_STEP = 10;
@@ -52,6 +62,8 @@ export class Sound implements Sfx {
   private lowpass: BiquadFilterNode | null = null;
   private pool = new VoicePool();
   private gate = new SuspendGate();
+  /** Welk vuurgeluid bij Vuur! klinkt. */
+  fireSound: FireSound = 'adem';
 
   constructor(opts: { storage: Storage | null; createContext?: () => BaseAudioContext | null }) {
     this.storage = opts.storage;
@@ -88,7 +100,9 @@ export class Sound implements Sfx {
   reset() {
     this.play((k, at) => [6, 4, 2].map((s, i) => tick(k, at + i * 0.06, vary(noteFreq(s), 0.25))));
   }
-  charge() { this.play((k, at) => breath(k, at, { freq: noteFreq(-5), gain: 0.35 })); }
+  charge() { this.chargeWith(this.fireSound); }
+  /** Een bepaald vuurgeluid afspelen (geluidsproef). */
+  chargeWith(name: FireSound) { this.play((k, at) => FIRE_SOUNDS[name](k, at)); }
   hit(n: number, opts: { soft?: boolean } = {}) {
     this.play((k, at) => glass(k, at, vary(noteFreq(hitStep(n)), 0.55 * (opts.soft ? SOFT : 1))));
   }

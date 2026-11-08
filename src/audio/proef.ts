@@ -1,6 +1,6 @@
 /** Geluidsproef (alleen in dev, via ?geluid): elk geluid beluisteren, klank bijstemmen en controleren. */
 import { h } from '../ui/dom';
-import { Sound, type Sfx } from './sound';
+import { FIRE_SOUNDS, Sound, type FireSound, type Sfx } from './sound';
 import { TONE } from './voices';
 
 type Run = (s: Sfx) => void;
@@ -37,6 +37,8 @@ const SEQUENCES: [string, (s: Sfx) => Promise<void>][] = [
     s.bloom();
   }],
 ];
+
+const FIRE_NAMES = Object.keys(FIRE_SOUNDS) as FireSound[];
 
 const RATE = 44100;
 const SECONDS = 6;
@@ -90,6 +92,7 @@ export function mount(): void {
     const all: { name: string; peak: number; tail: number; ok: boolean }[] = [];
     const cases: [string, Run][] = [
       ...SOUNDS,
+      ...FIRE_NAMES.map((n): [string, Run] => [`Vuur: ${n}`, (snd) => (snd as Sound).chargeWith(n)]),
       ['Stress: 7 noten + akkoord tegelijk', (s) => { for (let i = 0; i < 7; i++) s.perfectNote(i); s.bloom(); }],
       ['Stress: 30× plaatsen', (s) => { for (let i = 0; i < 30; i++) s.place(); }],
     ];
@@ -107,6 +110,9 @@ export function mount(): void {
     .proef h1 { font-family: var(--font-display); margin: 0; }
     .proef-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
     .proef-sliders { display: grid; gap: 10px; }
+    .proef h2 { font-family: var(--font-display); font-size: 18px; margin: 8px 0 0; }
+    .proef-fire { display: grid; gap: 8px; }
+    .proef-fire-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .proef-sliders label { display: grid; grid-template-columns: 140px 1fr 64px; gap: 10px; align-items: center; }
     .proef-out { background: var(--surface); padding: 12px; border-radius: 10px; font-size: 13px; }
     .proef-table { border-collapse: collapse; font-size: 14px; }
@@ -119,6 +125,17 @@ export function mount(): void {
     h('p', {}, 'Tik een geluid aan. Schuif aan de klank en kopieer de waarden hieronder als het goed klinkt.'),
     h('div', { class: 'proef-grid' }, ...SOUNDS.map(([label, run]) => btn(label, () => run(sound)))),
     h('div', { class: 'proef-grid' }, ...SEQUENCES.map(([label, run]) => btn(label, () => void run(sound)))),
+    h('h2', {}, 'Vuurgeluid kiezen'),
+    h('p', {}, 'Links alleen het vuurgeluid, rechts met de eerste kristallen erachteraan (zoals in het spel). "Hele ronde" gebruikt het gekozen geluid.'),
+    h('div', { class: 'proef-fire' }, ...FIRE_NAMES.map((n) => h('div', { class: 'proef-fire-row' },
+      btn(n, () => { sound.fireSound = n; sound.chargeWith(n); }),
+      btn('+ kristallen', async () => {
+        sound.fireSound = n;
+        sound.chargeWith(n);
+        await wait(700);
+        for (let i = 1; i <= 4; i++) { sound.hit(i); await wait(240); }
+      }),
+    ))),
     sliders,
     out,
     h('div', {}, btn('Controleer', () => void check())),

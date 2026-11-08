@@ -18,10 +18,10 @@ function ask(opts: { label: string; title: string; text: string; no: string; yes
   });
 }
 
-/** "Zeker weten?" vóór het indienen. Resolvet true bij "Ja, vuur!". */
-export const confirmFire = () => ask({
-  label: 'Bevestig vuren', title: 'Zeker weten?',
-  text: 'Na het vuren liggen je spiegels vast en zie je hoeveel er maximaal in zat.',
+/** Vuren terwijl er nog spiegels over zijn? Resolvet true bij "Ja, vuur!". */
+export const confirmFire = (left: number) => ask({
+  label: 'Bevestig vuren', title: 'Nog spiegels over',
+  text: `Je hebt nog ${left} ${left === 1 ? 'spiegel' : 'spiegels'} over. Na het vuren liggen je spiegels vast en zie je hoeveel er maximaal in zat.`,
   no: 'Nog even niet', yes: 'Ja, vuur!',
 });
 

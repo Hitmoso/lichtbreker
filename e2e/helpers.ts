@@ -62,6 +62,23 @@ export async function placeOneMirror(page: Page): Promise<{ x: number; y: number
   throw new Error('geen leeg vak gevonden');
 }
 
+/** Tikt elk vak in leesvolgorde één keer aan tot alle spiegels liggen. */
+export async function placeAllMirrors(page: Page): Promise<void> {
+  const canvas = page.locator('.board-host canvas');
+  const box = (await canvas.boundingBox())!;
+  const cols = Number(await canvas.getAttribute('data-cols'));
+  const rows = Number(await canvas.getAttribute('data-rows'));
+  const size = box.width / cols;
+  const total = await page.locator('.tray-mirror').count();
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if ((await usedMirrors(page)) >= total) return;
+      await page.mouse.click(box.x + (x + 0.5) * size, box.y + (y + 0.5) * size);
+    }
+  }
+  throw new Error('niet genoeg lege vakken');
+}
+
 /** Aantal heldere pixels (straal, kristallen) in een PNG; een leeg veld heeft er bijna geen. */
 export async function brightPixels(page: Page, png: Buffer): Promise<number> {
   return page.evaluate(async (b64) => {
