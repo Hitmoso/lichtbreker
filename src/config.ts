@@ -59,3 +59,12 @@ export const DIFFICULTIES: Record<Difficulty, GenSettings> = {
   normal: { ...DAILY },
   hard: { ...DAILY, width: 8, height: 10, mirrors: [5, 6], extras: [2, 3], walls: [6, 10], crystals: [14, 20], maxScore: [9, 14] },
 };
+
+/** Waar de bouwer dagpuzzels publiceert (GitHub-API). */
+export const PUBLISH = {
+  owner: 'Hitmoso',
+  repo: 'lichtbreker',
+  branch: 'main',
+  path: 'src/data/overrides.json',
+  workflow: 'pages.yml',
+} as const;
