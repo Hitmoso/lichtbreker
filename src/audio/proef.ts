@@ -106,6 +106,8 @@ export function mount(): void {
   };
 
   const style = h('style', {}, `
+    html, body { height: auto; overflow: auto; }
+    #app { height: auto; min-height: 100dvh; display: block; }
     .proef { max-width: 720px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 20px; color: var(--text); }
     .proef h1 { font-family: var(--font-display); margin: 0; }
     .proef-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
