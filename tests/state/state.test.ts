@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fromAscii } from '../../src/core/ascii';
 import { resetPlacements, startGame, submit, tapCell, toSaved, type DailyInput } from '../../src/state/game';
+import { puzzleId } from '../../src/core/fingerprint';
 import { computeStats } from '../../src/state/stats';
 import { defaultState, loadState, saveState, STORAGE_KEY, type SavedState } from '../../src/state/storage';
 
@@ -100,13 +101,46 @@ describe('game', () => {
     expect(s1.history['5']).toEqual({ score: 0, max: 1 });
     const s2 = toSaved(s1, { ...g, score: 1 });
     expect(s2.history['5']).toEqual({ score: 0, max: 1 });
-    expect(s1.current).toEqual({ number: 5, placements: [], submitted: true, score: 0 });
+    expect(s1.current).toEqual({ number: 5, placements: [], submitted: true, score: 0, puzzleId: puzzleId(puzzle) });
   });
   it('restores a submitted game', () => {
     const g = submit(startGame(defaultState(), daily()));
     const back = startGame(toSaved(defaultState(), g), daily());
     expect(back.submitted).toBe(true);
     expect(back.score).toBe(0);
+  });
+});
+
+describe('puzzle fingerprint', () => {
+  const withCurrent = (puzzleIdValue?: string): SavedState => ({
+    ...defaultState(),
+    history: { 5: { score: 1, max: 1 } },
+    current: { number: 5, placements: [{ x: 1, y: 0, mirror: '/' }], submitted: false, score: null, ...(puzzleIdValue ? { puzzleId: puzzleIdValue } : {}) },
+  });
+  it("resets progress when the day's puzzle changed", () => {
+    const saved = withCurrent('deadbeef');
+    const g = startGame(saved, daily());
+    expect(g.placements).toEqual([]);
+    expect(g.submitted).toBe(false);
+    expect(saved.history).toEqual({ 5: { score: 1, max: 1 } });
+  });
+  it('keeps progress when the fingerprint matches', () => {
+    expect(startGame(withCurrent(puzzleId(puzzle)), daily()).placements).toHaveLength(1);
+  });
+  it('keeps legacy progress without puzzleId', () => {
+    expect(startGame(withCurrent(), daily()).placements).toHaveLength(1);
+  });
+  it('toSaved stores puzzleId', () => {
+    expect(toSaved(defaultState(), startGame(defaultState(), daily())).current?.puzzleId).toBe(puzzleId(puzzle));
+  });
+  it('loadState keeps a string puzzleId and drops a non-string one', () => {
+    const s = mem();
+    s.setItem(STORAGE_KEY, JSON.stringify(withCurrent('abcd1234')));
+    expect(loadState(s).current?.puzzleId).toBe('abcd1234');
+    s.setItem(STORAGE_KEY, JSON.stringify({ ...withCurrent(), current: { ...withCurrent().current, puzzleId: 42 } }));
+    const cur = loadState(s).current;
+    expect(cur).not.toBeNull();
+    expect(cur?.puzzleId).toBeUndefined();
   });
 });
 

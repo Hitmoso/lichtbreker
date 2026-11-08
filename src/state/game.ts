@@ -1,4 +1,5 @@
 import { trace } from '../core/beam';
+import { puzzleId } from '../core/fingerprint';
 import type { Placement, Puzzle } from '../core/types';
 import { validatePlacements } from '../core/validate';
 import type { SavedState } from './storage';
@@ -27,6 +28,8 @@ export function resumeGame(input: DailyInput, placements: unknown, submitted: bo
 export function startGame(saved: SavedState, daily: DailyInput): GameState {
   const cur = saved.current;
   if (!cur || cur.number !== daily.number) return resumeGame(daily, [], false);
+  // De puzzel van vandaag is intussen aangepast (bouwer): stil opnieuw beginnen.
+  if (cur.puzzleId !== undefined && cur.puzzleId !== puzzleId(daily.puzzle)) return resumeGame(daily, [], false);
   return resumeGame(daily, cur.placements, cur.submitted);
 }
 
@@ -66,7 +69,7 @@ export function toSaved(saved: SavedState, g: GameState): SavedState {
   if (g.submitted && g.score !== null && !history[key]) history[key] = { score: g.score, max: g.max };
   return {
     ...saved,
-    current: { number: g.number, placements: g.placements, submitted: g.submitted, score: g.score },
+    current: { number: g.number, placements: g.placements, submitted: g.submitted, score: g.score, puzzleId: puzzleId(g.puzzle) },
     history,
   };
 }

@@ -8,6 +8,8 @@ export interface SavedCurrent {
   placements: Placement[];
   submitted: boolean;
   score: number | null;
+  /** Vingerafdruk van de dagpuzzel waar deze voortgang bij hoort (ontbreekt in oude opslag). */
+  puzzleId?: string;
 }
 
 export interface SavedState {
@@ -33,7 +35,9 @@ function parseCurrent(v: unknown): SavedCurrent | null {
   if (!isNat(c.number) || c.number < 1 || !Array.isArray(c.placements) || typeof c.submitted !== 'boolean') return null;
   if (!(c.score === null || isNat(c.score))) return null;
   // Plaatsingen worden tegen de puzzel gecontroleerd in startGame.
-  return { number: c.number, placements: c.placements as Placement[], submitted: c.submitted, score: c.score as number | null };
+  const cur: SavedCurrent = { number: c.number, placements: c.placements as Placement[], submitted: c.submitted, score: c.score as number | null };
+  if (typeof c.puzzleId === 'string') cur.puzzleId = c.puzzleId;
+  return cur;
 }
 
 /** Leest de opgeslagen staat; ongeldige delen worden standaardwaarden. Gooit nooit. */
