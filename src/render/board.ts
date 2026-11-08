@@ -74,6 +74,20 @@ export class BoardView {
   /** Wordt aangeroepen als de toetsenbordcursor naar een ander vak gaat. */
   onCursor(cb: (x: number, y: number) => void) { this.cursorCb = cb; }
 
+  private paintMode = false;
+  private painting: { x: number; y: number } | null = null;
+  private paintCb: ((x: number, y: number, phase: 'start' | 'move' | 'end') => void) | null = null;
+
+  /**
+   * Tekenmodus (bouwer): muis/vinger gaat naar `onPaint` in plaats van `onTap`.
+   * Enter/spatie op het toetsenbord roepen nog steeds `onTap` aan.
+   */
+  setPaintMode(on: boolean) { this.paintMode = on; this.painting = null; }
+  onPaint(cb: (x: number, y: number, phase: 'start' | 'move' | 'end') => void) { this.paintCb = cb; }
+
+  /** Doorzichtigheid van de spelersspiegels (bijv. 0.55 voor "Toon oplossing" in de bouwer). */
+  setMirrorAlpha(a: number) { this.mirrorLayer.alpha = a; }
+
   private drawCursor() {
     const c = this.cell, { x, y } = this.cursor;
     this.cursorGfx.clear().roundRect(x * c + 2, y * c + 2, c - 4, c - 4, Math.max(4, c * 0.16)).stroke({ width: 2.5, color: COLORS.accent });
@@ -91,11 +105,39 @@ export class BoardView {
     app.stage.addChild(this.root);
     this.fire = new FireFx(this);
     app.stage.eventMode = 'static';
+    const cellAt = (gx: number, gy: number) => {
+      if (!this.puzzle) return null;
+      const x = Math.floor(gx / this.cell), y = Math.floor(gy / this.cell);
+      return x >= 0 && y >= 0 && x < this.puzzle.width && y < this.puzzle.height ? { x, y } : null;
+    };
     app.stage.on('pointertap', (e) => {
-      if (!this.interactive || !this.puzzle) return;
-      const x = Math.floor(e.global.x / this.cell), y = Math.floor(e.global.y / this.cell);
-      if (x >= 0 && y >= 0 && x < this.puzzle.width && y < this.puzzle.height) this.tapCb?.(x, y);
+      if (!this.interactive || this.paintMode) return;
+      const c = cellAt(e.global.x, e.global.y);
+      if (c) this.tapCb?.(c.x, c.y);
     });
+    // Tekenmodus (bouwer): indrukken, slepen over vakken, loslaten.
+    app.stage.on('pointerdown', (e) => {
+      if (!this.interactive || !this.paintMode) return;
+      const c = cellAt(e.global.x, e.global.y);
+      if (!c) return;
+      this.painting = c;
+      this.paintCb?.(c.x, c.y, 'start');
+    });
+    app.stage.on('pointermove', (e) => {
+      if (!this.painting) return;
+      const c = cellAt(e.global.x, e.global.y);
+      if (!c || (c.x === this.painting.x && c.y === this.painting.y)) return;
+      this.painting = c;
+      this.paintCb?.(c.x, c.y, 'move');
+    });
+    const endPaint = () => {
+      if (!this.painting) return;
+      const c = this.painting;
+      this.painting = null;
+      this.paintCb?.(c.x, c.y, 'end');
+    };
+    app.stage.on('pointerup', endPaint);
+    app.stage.on('pointerupoutside', endPaint);
     this.root.addChild(this.cursorGfx);
     this.cursorGfx.visible = false;
     const canvas = app.canvas;
@@ -155,16 +197,37 @@ export class BoardView {
     this.rebuildMirrors(this.currentPlacements, false);
   }
 
-  setPuzzle(p: Puzzle) {
+  /**
+   * Nieuwe puzzel. Met `changed` (bouwer) blijft de toetsenbordcursor staan en krijgen de
+   * gewijzigde vakken een korte plop (kristal veert op, zachte ring); niet bij reduced motion.
+   */
+  setPuzzle(p: Puzzle, opts: { changed?: readonly number[] } = {}) {
+    const sameSize = this.puzzle?.width === p.width && this.puzzle?.height === p.height;
     this.puzzle = p;
     this.app.canvas.dataset.cols = String(p.width);
     this.app.canvas.dataset.rows = String(p.height);
-    this.cursor = { x: 0, y: 0 };
-    this.currentPlacements = [];
+    if (!(opts.changed && sameSize)) this.cursor = { x: 0, y: 0 };
     this.lit.clear();
     this.trace = null;
+    this.currentPlacements = [];
     this.drawStatic();
     this.rebuildMirrors([], false);
+    if (opts.changed && !this.reduced) for (const i of opts.changed) this.pop(i);
+  }
+
+  private pop(i: number) {
+    if (!this.puzzle || i < 0 || i >= this.puzzle.cells.length) return;
+    const { x, y } = this.center(i);
+    const ring = new Graphics().circle(0, 0, this.cell * 0.42).stroke({ width: 2, color: COLORS.accent });
+    ring.position.set(x, y);
+    this.fxLayer.addChild(ring);
+    void this.tweens.to(320, (k) => { ring.scale.set(0.6 + k * 0.6); ring.alpha = 0.8 * (1 - k); }, easeOut).then(() => ring.destroy());
+    const node = this.crystalNodes.get(i);
+    if (node) {
+      node.pivot.set(x, y);
+      node.position.set(x, y);
+      void this.tweens.to(260, (k) => node.scale.set(0.6 + 0.4 * k), spring);
+    }
   }
 
   private currentPlacements: Placement[] = [];

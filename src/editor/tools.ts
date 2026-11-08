@@ -26,7 +26,7 @@ export function inwardDirs(w: number, h: number, x: number, y: number): Dir[] {
 }
 
 /** Richting recht het veld in, weg van de rand (bij een hoek: de eerste passende). */
-function awayFromEdge(w: number, h: number, x: number, y: number): Dir {
+function awayFromEdge(w: number, x: number, y: number): Dir {
   if (x === 0) return 0;
   if (x === w - 1) return 2;
   if (y === 0) return 1;
@@ -63,7 +63,7 @@ export function applyTool(p: Puzzle, x: number, y: number, tool: Tool, v: Varian
     case 'source': {
       const dirs = inwardDirs(p.width, p.height, x, y);
       if (!dirs.length) return { puzzle: p, changed: false, rejected: true, variants: v };
-      const dir = cur.kind === 'source' ? next(dirs, cur.dir) : dirs.includes(v.source) ? v.source : awayFromEdge(p.width, p.height, x, y);
+      const dir = cur.kind === 'source' ? next(dirs, cur.dir) : dirs.includes(v.source) ? v.source : awayFromEdge(p.width, x, y);
       const cells = p.cells.map((c, j): Cell => (j === i ? { kind: 'source', dir } : c.kind === 'source' ? { kind: 'empty' } : c));
       return same({ ...p, cells }, { ...v, source: dir });
     }
