@@ -29,6 +29,7 @@ const root = document.getElementById('app')!;
 
 if (params.has('bouwer')) {
   // Puzzelbouwer: eigen chunk, alleen geladen als je hem opent (ook in productie).
+  root.innerHTML = '<p class="boot">Bouwer laden…</p>';
   void import('./editor').then((m) => m.mount(root));
 } else if (import.meta.env.DEV && params.has('geluid')) {
   // Geluidsproef (alleen in dev): ?geluid

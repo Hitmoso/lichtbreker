@@ -326,3 +326,6 @@
 .level-error { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 24px; max-width: 360px; }
 .level-error-title { margin: 0 0 6px; font: 700 20px/1.25 var(--font-display); }
 .level-error .btn { min-width: 200px; }
+
+/* ---------- bouwer laden ---------- */
+.boot { margin: auto; color: var(--muted); font: 500 14px/1 var(--font-display); animation: breathe 1.6s ease-in-out infinite; }

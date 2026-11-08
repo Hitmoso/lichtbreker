@@ -206,8 +206,11 @@ export class BoardView {
     this.puzzle = p;
     this.app.canvas.dataset.cols = String(p.width);
     this.app.canvas.dataset.rows = String(p.height);
-    if (!(opts.changed && sameSize)) this.cursor = { x: 0, y: 0 };
-    this.lit.clear();
+    const edit = !!opts.changed && sameSize;
+    if (!edit) this.cursor = { x: 0, y: 0 };
+    // Bij een bewerking blijven brandende kristallen branden (geen flikkering); setLit werkt daarna alleen de verschillen bij.
+    if (!edit) this.lit.clear();
+    else for (const i of this.lit) if (p.cells[i]?.kind !== 'crystal') this.lit.delete(i);
     this.trace = null;
     this.currentPlacements = [];
     this.drawStatic();
