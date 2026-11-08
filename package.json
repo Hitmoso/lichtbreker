@@ -10,7 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "bouwer:account": "vite-node scripts/bouwer-account.ts --"
   },
   "keywords": [],
   "author": "",
