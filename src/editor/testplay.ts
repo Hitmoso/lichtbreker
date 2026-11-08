@@ -18,10 +18,13 @@ export function enterTest(api: EditorApi, onExit: () => void): () => void {
   sound ??= new Sound({ storage: safeLocal() });
   const puzzle = api.puzzle;
   let done = false;
+  let loading: { cancel(): void } | null = null;
 
   const exit = () => {
-    if (done) return;
+    // Tijdens vuren of de beste oplossing tekent de ronde nog op het veld: eerst laten afmaken.
+    if (done || (round.busy && !loading)) { if (!done) api.announce('Even wachten tot de straal klaar is.'); return; }
     done = true;
+    loading?.cancel();
     round.deactivate();
     closeSheet();
     api.testSlot.replaceChildren();
@@ -33,13 +36,13 @@ export function enterTest(api: EditorApi, onExit: () => void): () => void {
   const backBtn = h('button', { class: 'btn btn-fire', type: 'button', onClick: exit }, 'Terug naar bouwen');
   const round: Round = new Round(api.board, api.announce, sound, {
     persist: () => {},
-    afterFire: (g) => showResult({
+    afterFire: (g) => void (done || showResult({
       title: 'Test',
       score: g.score ?? 0,
       max: g.max,
       primary: { label: 'Terug naar bouwen', onClick: exit },
       secondary: { label: 'Bekijk beste oplossing', onClick: () => void round.showSolution() },
-    }),
+    })),
     idleButtons: () => [],
     doneButtons: () => [backBtn],
   });
@@ -62,7 +65,9 @@ export function enterTest(api: EditorApi, onExit: () => void): () => void {
   if (known) start(known.max, known.solution);
   else {
     round.setBusy(true);
-    void requestAnalyse(puzzle).result.then((a) => start(a?.max ?? 0, a?.solution ?? []));
+    const req = requestAnalyse(puzzle);
+    loading = req;
+    void req.result.then((a) => { loading = null; if (a) start(a.max, a.solution); });
   }
   return exit;
 }

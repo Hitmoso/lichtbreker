@@ -96,11 +96,13 @@ describe('github.runStatus', () => {
     expect((await status({ workflow_runs: [{ status: 'in_progress', conclusion: null, html_url: 'u' }] })).state).toBe('pending');
     expect(await status({ workflow_runs: [{ status: 'completed', conclusion: 'success', html_url: 'u1' }] })).toEqual({ state: 'success', url: 'u1' });
     expect((await status({ workflow_runs: [{ status: 'completed', conclusion: 'failure', html_url: 'u2' }] })).state).toBe('failure');
+    // Een nieuwere publicatie annuleert de vorige bouw (cancel-in-progress): dat is geen fout.
+    expect((await status({ workflow_runs: [{ status: 'completed', conclusion: 'cancelled', html_url: 'u3' }] })).state).toBe('unknown');
     expect((await status({}, 403)).state).toBe('unknown');
   });
   it('asks for runs of the commit', async () => {
     const { fn, calls } = fakeFetch(() => ({ status: 200, body: { workflow_runs: [] } }));
     await createGithub('t', fn).runStatus('abc');
-    expect(calls[0].url).toBe('https://api.github.com/repos/Hitmoso/lichtbreker/actions/runs?head_sha=abc');
+    expect(calls[0].url).toBe('https://api.github.com/repos/Hitmoso/lichtbreker/actions/workflows/pages.yml/runs?head_sha=abc');
   });
 });

@@ -2,6 +2,8 @@ import { score, walk } from './beam';
 import type { MirrorKind, Placement, Puzzle } from './types';
 
 export interface Solution { max: number; solution: Placement[] }
+/** Met budget: `exact` is false als het zoeken is afgebroken; `max` is dan een ondergrens. */
+export interface BoundedSolution extends Solution { exact: boolean }
 
 /**
  * Hoogst haalbare score met maximaal `mirrorLimit` spelersspiegels.
@@ -9,6 +11,19 @@ export interface Solution { max: number; solution: Placement[] }
  * (leeg laten, '/', '\'). Alleen vakken op de straal doen ertoe.
  */
 export function solve(p: Puzzle, mirrorLimit = p.mirrors): Solution {
+  const { max, solution } = search(p, mirrorLimit, Infinity);
+  return { max, solution };
+}
+
+/**
+ * Zoals solve, maar stopt na `budget` zoekstappen (voor grote borden in de bouwer).
+ * Zonder afbreken is het resultaat gelijk aan solve.
+ */
+export function solveWithin(p: Puzzle, mirrorLimit: number, budget: number): BoundedSolution {
+  return search(p, mirrorLimit, budget);
+}
+
+function search(p: Puzzle, mirrorLimit: number, budget: number): BoundedSolution {
   const crystals = p.cells.reduce((n, c) => n + (c.kind === 'crystal' ? 1 : 0), 0);
   const mirrors = new Map<number, MirrorKind>();
   const none = new Set<number>();
@@ -19,8 +34,12 @@ export function solve(p: Puzzle, mirrorLimit = p.mirrors): Solution {
     if (s > best) { best = s; bestMirrors = new Map(mirrors); }
   };
 
+  let steps = 0;
+  let stopped = false;
+
   const rec = (left: number) => {
-    if (best === crystals) return;
+    if (best === crystals || stopped) return;
+    if (++steps > budget) { stopped = true; return; }
     if (left === 0) { record(score(p, mirrors)); return; }
     const { hit, stoppedAt } = walk(p, { mirrors, onEmpty: (c) => !none.has(c) });
     if (stoppedAt < 0) { record(hit.size); return; }
@@ -37,5 +56,5 @@ export function solve(p: Puzzle, mirrorLimit = p.mirrors): Solution {
   rec(mirrorLimit);
   const w = p.width;
   const solution = [...bestMirrors].map(([i, mirror]) => ({ x: i % w, y: Math.floor(i / w), mirror }));
-  return { max: Math.max(best, 0), solution };
+  return { max: Math.max(best, 0), solution, exact: !stopped };
 }

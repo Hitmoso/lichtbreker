@@ -91,11 +91,14 @@ export function createGithub(token: string, fetchFn: typeof fetch = (...a) => fe
     async runStatus(commitSha) {
       try {
         const r = await json<{ workflow_runs?: { status: string; conclusion: string | null; html_url: string }[] }>(
-          `${REPO}/actions/runs?head_sha=${encodeURIComponent(commitSha)}`,
+          `${REPO}/actions/workflows/${PUBLISH.workflow}/runs?head_sha=${encodeURIComponent(commitSha)}`,
         );
         const run = r.workflow_runs?.[0];
         if (!run || run.status !== 'completed') return { state: 'pending' };
-        return { state: run.conclusion === 'success' ? 'success' : 'failure', url: run.html_url };
+        if (run.conclusion === 'success') return { state: 'success', url: run.html_url };
+        // Geannuleerd (een nieuwere publicatie nam het over) of overgeslagen: geen fout van deze publicatie.
+        if (run.conclusion === 'cancelled' || run.conclusion === 'skipped') return { state: 'unknown', url: run.html_url };
+        return { state: 'failure', url: run.html_url };
       } catch (e) {
         if (e instanceof GithubError && (e.status === 403 || e.status === 404)) return { state: 'unknown' };
         throw e;

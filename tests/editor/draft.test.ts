@@ -21,6 +21,12 @@ describe('draft', () => {
     expect(s.getItem(DRAFT_KEY)).not.toBeNull();
   });
 
+  it('remembers whether the design had unsaved changes', () => {
+    const s = mem();
+    saveDraft({ puzzle: emptyPuzzle(5, 6, 2), origin: { kind: 'new' }, tool: 'wall', variants: DEFAULT_VARIANTS, dirty: true }, s);
+    expect(loadDraft(s)?.dirty).toBe(true);
+  });
+
   it('keeps an invalid but well-formed puzzle', () => {
     const s = mem();
     const p = emptyPuzzle(4, 4, 1);
@@ -44,7 +50,7 @@ describe('draft', () => {
 
 describe('qualityTips', () => {
   it('lists the problems in plain Dutch', () => {
-    const report = { errors: [], max: 3, solution: [], maxInRange: false, tooEasyWithout: true, greedyReachesMax: true, fewerMirrorsSuffice: true, ok: false };
+    const report = { errors: [], max: 3, solution: [], exact: true, maxInRange: false, tooEasyWithout: true, greedyReachesMax: true, fewerMirrorsSuffice: true, ok: false };
     expect(qualityTips(report)).toEqual([
       'Max ligt buiten 6–12',
       'Zonder spiegels raak je al de helft',
@@ -53,10 +59,15 @@ describe('qualityTips', () => {
     ]);
   });
 
+  it('only says the board is too big when the search was cut off', () => {
+    const report = { errors: [], max: 6, solution: [], exact: false, maxInRange: true, tooEasyWithout: true, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: false };
+    expect(qualityTips(report)).toEqual(['Te groot om exact te rekenen; max is minstens 6']);
+  });
+
   it('is empty for a good puzzle', () => {
     for (let s = 1; s <= 5; s++) {
       const g = generate(s);
-      expect(qualityTips({ errors: [], max: g.max, solution: [], maxInRange: true, tooEasyWithout: false, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: true })).toEqual([]);
+      expect(qualityTips({ errors: [], max: g.max, solution: [], exact: true, maxInRange: true, tooEasyWithout: false, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: true })).toEqual([]);
     }
   });
 });

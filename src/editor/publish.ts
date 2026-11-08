@@ -3,8 +3,9 @@ import { validatePuzzle } from '../core/validate';
 import { GithubError, type Github } from '../publish/github';
 import { h } from '../ui/dom';
 import { closeSheet, openSheet } from '../ui/sheet';
+import { requestGeneratedDaily } from '../worker/client';
 import type { Origin } from './draft';
-import { humanError, qualityTips } from './messages';
+import { humanError, maxText, qualityTips } from './messages';
 import type { EditorApi } from './screen';
 import { toast } from './share';
 
@@ -92,7 +93,7 @@ export function openPublish(api: EditorApi): void {
     if (d === todayStr()) warn.push('Spelers die vandaag al begonnen zijn, beginnen opnieuw.');
     else if (d < todayStr()) warn.push('Deze datum is al voorbij.');
     info.replaceChildren(
-      h('p', { class: 'pub-line' }, h('b', {}, `Puzzel #${puzzleNumber(d)}`), ` · ${shortDate(d)} · Max ${a ? a.max : '…'}`),
+      h('p', { class: 'pub-line' }, h('b', {}, `Puzzel #${puzzleNumber(d)}`), ` · ${shortDate(d)} · Max ${a ? maxText(a) : '…'}`),
       ...warn.map((w) => h('p', { class: 'pub-warn' }, `⚠ ${w}`)),
       ...tips.map((t) => h('p', { class: 'st-tip pub-tip' }, `! ${t}`)),
     );
@@ -135,7 +136,8 @@ export async function removeOwn(api: EditorApi): Promise<void> {
   const d = api.origin.date;
   try {
     const { commitSha } = await api.github.publish(d, null, api.session.name);
-    api.setOrigin({ kind: 'date', date: d, own: false });
+    // Laat zien wat die dag nu krijgt: de gegenereerde puzzel.
+    api.load((await requestGeneratedDaily(d)).puzzle, { kind: 'date', date: d, own: false });
     toast(`Eigen puzzel van ${shortDate(d)} verwijderd`);
     watchRun(api, api.github, commitSha);
   } catch (e) {

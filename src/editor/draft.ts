@@ -4,7 +4,11 @@ import { TOOLS, type Tool, type Variants } from './tools';
 /** Waar het ontwerp vandaan komt: nieuw, of een datum (met of zonder eigen puzzel in de repo). */
 export type Origin = { kind: 'new' } | { kind: 'date'; date: string; own: boolean };
 
-export interface Draft { puzzle: Puzzle; origin: Origin; tool: Tool; variants: Variants }
+export interface Draft {
+  puzzle: Puzzle; origin: Origin; tool: Tool; variants: Variants;
+  /** Gewijzigd sinds het laatst laden of publiceren (dan vraagt de bouwer voor hij het vervangt). */
+  dirty?: boolean;
+}
 
 export const DRAFT_KEY = 'lichtbreker:bouwer:ontwerp';
 
@@ -32,7 +36,9 @@ export function loadDraft(storage: Storage | null = safeLocal()): Draft | null {
     if (!Array.isArray(p.cells) || p.cells.length !== p.width * p.height) return null;
     if (!p.cells.every((c) => c && typeof (c as { kind?: unknown }).kind === 'string')) return null;
     if (!isOrigin(d.origin) || !TOOLS.includes(d.tool as Tool) || typeof d.variants !== 'object' || !d.variants) return null;
-    return { puzzle: p, origin: d.origin, tool: d.tool as Tool, variants: d.variants };
+    const out: Draft = { puzzle: p, origin: d.origin, tool: d.tool as Tool, variants: d.variants };
+    if (d.dirty === true) out.dirty = true;
+    return out;
   } catch {
     return null;
   }

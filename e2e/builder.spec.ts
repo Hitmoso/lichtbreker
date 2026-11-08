@@ -66,6 +66,52 @@ test('test play returns to the design', async ({ page }) => {
   await expect(page.locator('.ed-title')).toHaveText('Bouwer');
 });
 
+test('leaving test during the fire animation waits for it', async ({ page }) => {
+  await mockGithub(page);
+  await loginAs(page);
+  await page.getByRole('button', { name: 'Test' }).click();
+  await placeOneMirror(page);
+  await page.getByRole('button', { name: 'Vuur!', exact: true }).click();
+  await pause(page);
+  await page.getByRole('button', { name: 'Ja, vuur!' }).click();
+  await page.getByRole('button', { name: 'Terug naar bouwen' }).click();
+  // Tijdens het vuren blijft de test staan; daarna komt gewoon het resultaat.
+  await expect(page.locator('.ed-title')).toHaveText('Test');
+  await expect(page.getByRole('dialog', { name: 'Resultaat' })).toBeVisible({ timeout: 15_000 });
+});
+
+test('opening a date starts a fresh undo history', async ({ page }) => {
+  await mockGithub(page, { [tomorrow()]: fromAscii(['....', '>.o.', '..o.', '....'], 2) });
+  await loginAs(page);
+  await page.getByRole('radio', { name: 'Muur' }).click();
+  await tapCell(page, 3, 3);
+  await page.getByRole('button', { name: 'Meer' }).click();
+  await pause(page);
+  await page.getByRole('button', { name: 'Datum openen…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Datum openen' });
+  await pause(page);
+  await dialog.getByRole('button', { name: 'Morgen' }).click();
+  await dialog.getByRole('button', { name: 'Openen' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Huidig ontwerp vervangen?' });
+  await pause(page);
+  await confirm.getByRole('button', { name: 'Doorgaan' }).click();
+  await expect(page.locator('.ed-origin')).toContainText('Eigen puzzel');
+  await expect(page.getByRole('button', { name: 'Ongedaan maken' })).toBeDisabled();
+});
+
+test('a restored unsaved design is not replaced without asking', async ({ page }) => {
+  await mockGithub(page);
+  await loginAs(page);
+  await page.getByRole('radio', { name: 'Muur' }).click();
+  await tapCell(page, 3, 3);
+  await page.reload();
+  await expect(page.getByRole('radiogroup', { name: 'Gereedschap' })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Meer' }).click();
+  await pause(page);
+  await page.getByRole('button', { name: 'Leeg veld' }).click();
+  await expect(page.getByRole('dialog', { name: 'Huidig ontwerp vervangen?' })).toBeVisible();
+});
+
 test('publishes tomorrow and follows the build', async ({ page }) => {
   const gh = await mockGithub(page, { '2026-01-01': fromAscii(['.....', '>..o.', '.....'], 1) });
   await loginAs(page);
@@ -95,6 +141,30 @@ test('opens a date from the repository', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Openen' }).click();
   await expect(page.locator('.ed-origin')).toContainText('Eigen puzzel');
   expect((await draft(page)).puzzle).toEqual(own);
+});
+
+test('removing an own puzzle shows the generated one again', async ({ page }) => {
+  const own = fromAscii(['....', '>.o.', '..o.', '....'], 2);
+  const gh = await mockGithub(page, { [tomorrow()]: own });
+  await loginAs(page);
+  await page.getByRole('button', { name: 'Meer' }).click();
+  await pause(page);
+  await page.getByRole('button', { name: 'Datum openen…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Datum openen' });
+  await pause(page);
+  await dialog.getByRole('button', { name: 'Morgen' }).click();
+  await dialog.getByRole('button', { name: 'Openen' }).click();
+  await expect(page.locator('.ed-origin')).toContainText('Eigen puzzel');
+  await page.getByRole('button', { name: 'Meer' }).click();
+  await pause(page);
+  await page.getByRole('button', { name: 'Verwijder eigen puzzel' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Eigen puzzel verwijderen?' });
+  await pause(page);
+  await confirm.getByRole('button', { name: 'Verwijderen' }).click();
+  await expect(page.locator('.ed-origin')).toContainText('Gegenereerd');
+  expect(gh.puts.at(-1)!.data).toEqual({});
+  await expect.poll(async () => JSON.stringify((await draft(page)).puzzle)).not.toBe(JSON.stringify(own));
+  expect((await draft(page)).puzzle.width).toBe(7);
 });
 
 test('a shared link plays as an own level', async ({ page }) => {

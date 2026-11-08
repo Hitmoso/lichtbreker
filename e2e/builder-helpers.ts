@@ -33,7 +33,7 @@ export async function mockGithub(page: Page, initial: Record<string, unknown> = 
       mock.puts.push({ message: body.message, data });
       return route.fulfill({ json: { commit: { sha: `c${mock.puts.length}` } } });
     }
-    if (url.pathname.endsWith('/actions/runs')) {
+    if (url.pathname.endsWith('/actions/workflows/pages.yml/runs')) {
       polls++;
       const done = polls >= 2;
       return route.fulfill({ json: { workflow_runs: [{ status: done ? 'completed' : 'in_progress', conclusion: done ? 'success' : null, html_url: 'https://github.com/x' }] } });

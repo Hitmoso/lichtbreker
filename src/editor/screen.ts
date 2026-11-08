@@ -13,7 +13,7 @@ import { createAnalyser } from './analysis';
 import { loadDraft, saveDraft, type Origin } from './draft';
 import { History } from './history';
 import { COLOR_NAMES, crystalSvg, DIR_NAMES, filterSvg, ICON, mirrorSvg, sourceSvg, TOOL_NAMES, toolSvg } from './icons';
-import { humanError, qualityTips } from './messages';
+import { humanError, maxText, qualityTips } from './messages';
 import { openMenu } from './menu';
 import { openPublish, originLabel } from './publish';
 import { shareLevel } from './share';
@@ -60,7 +60,8 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
   let origin: Origin = draft?.origin ?? { kind: 'new' };
   let tool: Tool = draft?.tool ?? 'wall';
   let variants: Variants = { ...DEFAULT_VARIANTS, ...draft?.variants };
-  let clean = JSON.stringify(puzzle);
+  // Een hersteld ontwerp met niet-opgeslagen wijzigingen blijft 'gewijzigd'.
+  let clean = draft?.dirty ? '' : JSON.stringify(puzzle);
   const history = new History<Puzzle>(puzzle);
   let analysis: Analysis | null = null;
   let analysedFor: Puzzle | null = null;
@@ -126,6 +127,8 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
     for (const l of analysisListeners) l();
   });
 
+  const persist = () => saveDraft({ puzzle, origin, tool, variants, ...(JSON.stringify(puzzle) !== clean ? { dirty: true } : {}) });
+
   // ---------- tekenen ----------
   const errorsOf = (p: Puzzle) => validatePuzzle(p);
 
@@ -134,13 +137,13 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
     board.setPuzzle(puzzle, { changed });
     hideSolution(false);
     if (errorsOf(puzzle).length === 0) board.update([], trace(puzzle, []), { animate: false });
-    else board.hideBeam();
+    else { board.hideBeam(); board.setLit(new Set(), false); }
     if (analysedFor !== puzzle) {
       analysis = null;
       analysing = errorsOf(puzzle).length === 0;
       analyser.request(puzzle);
     }
-    saveDraft({ puzzle, origin, tool, variants });
+    persist();
     renderInfo();
     renderHistory();
     fit();
@@ -193,13 +196,13 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
   function selectTool(t: Tool) {
     tool = t;
     renderTools();
-    saveDraft({ puzzle, origin, tool, variants });
+    persist();
     announce(`${TOOL_NAMES[t]} gekozen.`);
   }
 
   function variantButtons(): HTMLElement[] {
     const btn = (label: string, html: string, on: boolean, pick: () => void) =>
-      h('button', { class: 'variant', type: 'button', role: 'radio', 'aria-label': label, 'aria-checked': String(on), title: label, html, onClick: () => { pick(); renderTools(); saveDraft({ puzzle, origin, tool, variants }); } });
+      h('button', { class: 'variant', type: 'button', role: 'radio', 'aria-label': label, 'aria-checked': String(on), title: label, html, onClick: () => { pick(); renderTools(); persist(); } });
     switch (tool) {
       case 'crystal': return CRYSTAL_CYCLE.map((c) => btn(COLOR_NAMES[c], crystalSvg(c, 22), variants.crystal === c, () => { variants = { ...variants, crystal: c }; }));
       case 'filter': return FILTER_CYCLE.map((c) => btn(COLOR_NAMES[c], filterSvg(c, 22), variants.filter === c, () => { variants = { ...variants, filter: c }; }));
@@ -240,7 +243,7 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
   function renderInfo() {
     const { errs, tips } = infoParts();
     const valid = errs.length === 0;
-    const max = analysis ? String(analysis.max) : valid ? '…' : '–';
+    const max = analysis ? maxText(analysis) : valid ? '…' : '–';
     statusLine.replaceChildren(
       h('span', { class: 'st-max' }, 'Max ', h('b', { class: analysing ? 'is-busy' : '' }, max)),
       h('span', { class: 'st-sep' }, '·'),
@@ -264,7 +267,7 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
     const { errs, tips } = infoParts();
     const valid = errs.length === 0;
     const rows: (HTMLElement | null)[] = [
-      h('p', { class: 'pn-max' }, h('span', { class: 'pn-label' }, 'Max'), h('b', { class: analysing ? 'is-busy' : '' }, analysis ? String(analysis.max) : valid ? '…' : '–'),
+      h('p', { class: 'pn-max' }, h('span', { class: 'pn-label' }, 'Max'), h('b', { class: analysing ? 'is-busy' : '' }, analysis ? maxText(analysis) : valid ? '…' : '–'),
         h('span', { class: 'pn-sub' }, `met ${puzzle.mirrors} ${puzzle.mirrors === 1 ? 'spiegel' : 'spiegels'}`)),
       h('p', { class: 'pn-label' }, 'Geldig'),
       h('ul', { class: 'pn-list' }, ...(valid ? [h('li', { class: 'st-ok' }, '✓ Klaar om te spelen')] : errs.map((e) => h('li', { class: 'st-bad' }, `✗ ${e}`)))),
@@ -340,7 +343,7 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
       puzzle = p;
       origin = o;
       clean = JSON.stringify(p);
-      history.push(p);
+      history.reset(p);
       show();
     },
     edit(p) {
@@ -352,7 +355,7 @@ export async function startEditor(root: HTMLElement, session: Session): Promise<
     setOrigin(o, isClean = false) {
       origin = o;
       if (isClean) clean = JSON.stringify(puzzle);
-      saveDraft({ puzzle, origin, tool, variants });
+      persist();
       renderInfo();
     },
     announce,

@@ -5,7 +5,7 @@ import fallbackJson from '../data/fallback.json';
 import { score } from './beam';
 import { greedy } from './greedy';
 import { createRng, hashSeed, type Rng } from './rng';
-import { solve } from './solver';
+import { solve, solveWithin } from './solver';
 import type { Cell, Dir, ElementKind, FilterColor, MirrorKind, Placement, Puzzle } from './types';
 import { ELEMENT_KINDS, FILTER_COLORS } from './types';
 import { validatePuzzle } from './validate';
@@ -48,6 +48,8 @@ export interface QualityReport {
   errors: string[];
   max: number;
   solution: Placement[];
+  /** false: het zoeken is afgebroken (budget op); max is dan een ondergrens en ok is false. */
+  exact: boolean;
   /** Max binnen settings.maxScore. */
   maxInRange: boolean;
   /** Zonder spiegels raak je al de helft (of meer) van het maximum. */
@@ -60,19 +62,30 @@ export interface QualityReport {
   ok: boolean;
 }
 
-/** Zoals meetsQuality, maar met elke eis afzonderlijk (voor de bouwer). Verandert de generator niet. */
-export function qualityReport(p: Puzzle, settings: GenSettings = DAILY): QualityReport {
+/** Zoekstappen voor de analyse in de bouwer (± 1 s per solve op een trage telefoon). */
+export const ANALYSE_BUDGET = 300_000;
+
+/**
+ * Zoals meetsQuality, maar met elke eis afzonderlijk (voor de bouwer). Verandert de generator niet.
+ * Met een `budget` stopt het zoeken op grote borden; dan is `exact` false.
+ */
+export function qualityReport(p: Puzzle, settings: GenSettings = DAILY, budget = Infinity): QualityReport {
   const errors = validatePuzzle(p);
   if (errors.length) {
-    return { errors, max: 0, solution: [], maxInRange: false, tooEasyWithout: false, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: false };
+    return { errors, max: 0, solution: [], exact: false, maxInRange: false, tooEasyWithout: false, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: false };
   }
-  const { max, solution } = solve(p);
+  const { max, solution, exact } = solveWithin(p, p.mirrors, budget);
+  if (!exact) {
+    return { errors, max, solution, exact, maxInRange: false, tooEasyWithout: false, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: false };
+  }
   const maxInRange = max >= settings.maxScore[0] && max <= settings.maxScore[1];
   const tooEasyWithout = score(p, new Map()) * 2 >= max;
   const greedyReachesMax = greedy(p).score >= max;
-  const fewerMirrorsSuffice = solve(p, p.mirrors - 1).max >= max;
+  // Met één spiegel minder is de zoekboom kleiner; bij budget-op tellen we het niet als probleem.
+  const fewer = solveWithin(p, p.mirrors - 1, budget);
+  const fewerMirrorsSuffice = fewer.max >= max;
   const ok = maxInRange && !tooEasyWithout && !greedyReachesMax && !fewerMirrorsSuffice;
-  return { errors, max, solution, maxInRange, tooEasyWithout, greedyReachesMax, fewerMirrorsSuffice, ok };
+  return { errors, max, solution, exact, maxInRange, tooEasyWithout, greedyReachesMax, fewerMirrorsSuffice, ok };
 }
 
 const range = (rng: Rng, r: readonly [number, number]) => rng.int(r[0], r[1]);

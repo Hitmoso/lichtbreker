@@ -35,4 +35,13 @@ describe('History', () => {
     expect(n).toBe(100);
     expect(h.current).toBe(50);
   });
+
+  it('reset starts a fresh history', () => {
+    const h = new History('a');
+    h.push('b'); h.push('c'); h.undo();
+    h.reset('x');
+    expect(h.current).toBe('x');
+    expect(h.canUndo).toBe(false);
+    expect(h.canRedo).toBe(false);
+  });
 });

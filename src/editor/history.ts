@@ -20,6 +20,9 @@ export class History<T> {
 
   replace(s: T): void { this.states[this.at] = s; }
 
+  /** Nieuwe basis zonder ongedaan/opnieuw (bijv. na een andere puzzel laden). */
+  reset(s: T): void { this.states = [s]; this.at = 0; }
+
   undo(): T | null {
     if (!this.canUndo) return null;
     return this.states[--this.at];

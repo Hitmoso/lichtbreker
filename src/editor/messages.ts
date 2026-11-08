@@ -10,8 +10,12 @@ export function humanError(err: string): string {
   return err.charAt(0).toUpperCase() + err.slice(1);
 }
 
+/** Max als tekst; '≥ 6' als het zoeken op een groot bord is afgebroken. */
+export const maxText = (a: { max: number; report: QualityReport }) => (a.report.exact ? String(a.max) : `≥ ${a.max}`);
+
 /** Kwaliteitstips (alleen advies) uit een qualityReport. */
 export function qualityTips(r: QualityReport, settings: GenSettings = DAILY): string[] {
+  if (!r.exact && r.errors.length === 0) return [`Te groot om exact te rekenen; max is minstens ${r.max}`];
   const tips: string[] = [];
   if (!r.maxInRange) tips.push(`Max ligt buiten ${settings.maxScore[0]}–${settings.maxScore[1]}`);
   if (r.tooEasyWithout) tips.push('Zonder spiegels raak je al de helft');
