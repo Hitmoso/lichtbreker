@@ -49,7 +49,7 @@
   - `round-trips 50 generated puzzles`: `generate(seed, DAILY).puzzle` voor seeds 1..50.
   - `is URL-safe`: `encodeLevel(FALLBACK)` matcht `/^[A-Za-z0-9._-]+$/` en begint met `'1.7.9.'`.
   - `compresses empty runs`: een 12×14 puzzel met alleen een bron geeft een code korter dan 40 tekens.
-  - `rejects broken codes`: `decodeLevel` geeft `null` voor `''`, `'2.7.9.3.AAAA'`, `'1.7.9.3.!!!'`, een afgekapte geldige code (laatste 4 tekens weg), en `encodeLevel(fromAscii(['>..<'], 1))` (twee bronnen; `encodeLevel` valideert niet, `decodeLevel` wel).
+  - `rejects broken codes`: `decodeLevel` geeft `null` voor `''`, `'2.7.9.3.AAAA'`, `'1.7.9.3.!!!'`, een afgekapte geldige code (laatste 4 tekens weg), en `encodeLevel(fromAscii(['....', '>..<', '....'], 1))` (twee bronnen; `encodeLevel` valideert niet, `decodeLevel` wel).
   - `puzzleId is stable and sensitive`: `puzzleId(FALLBACK)` matcht `/^[0-9a-f]{8}$/`, is gelijk bij herhaling, en verschilt na het wijzigen van één cel.
 
 - [ ] **Step 2: Run** `npx vitest run tests/core/levelcode.test.ts` → FAIL (module bestaat niet).

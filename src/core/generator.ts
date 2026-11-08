@@ -43,6 +43,38 @@ export function meetsQuality(p: Puzzle, settings: GenSettings = DAILY): { ok: bo
   return { ok: true, ...res };
 }
 
+export interface QualityReport {
+  /** Fouten van validatePuzzle; leeg = geldig. */
+  errors: string[];
+  max: number;
+  solution: Placement[];
+  /** Max binnen settings.maxScore. */
+  maxInRange: boolean;
+  /** Zonder spiegels raak je al de helft (of meer) van het maximum. */
+  tooEasyWithout: boolean;
+  /** Gulzig spelen haalt het maximum al. */
+  greedyReachesMax: boolean;
+  /** Met één spiegel minder haal je het maximum ook. */
+  fewerMirrorsSuffice: boolean;
+  /** Gelijk aan meetsQuality(...).ok. */
+  ok: boolean;
+}
+
+/** Zoals meetsQuality, maar met elke eis afzonderlijk (voor de bouwer). Verandert de generator niet. */
+export function qualityReport(p: Puzzle, settings: GenSettings = DAILY): QualityReport {
+  const errors = validatePuzzle(p);
+  if (errors.length) {
+    return { errors, max: 0, solution: [], maxInRange: false, tooEasyWithout: false, greedyReachesMax: false, fewerMirrorsSuffice: false, ok: false };
+  }
+  const { max, solution } = solve(p);
+  const maxInRange = max >= settings.maxScore[0] && max <= settings.maxScore[1];
+  const tooEasyWithout = score(p, new Map()) * 2 >= max;
+  const greedyReachesMax = greedy(p).score >= max;
+  const fewerMirrorsSuffice = solve(p, p.mirrors - 1).max >= max;
+  const ok = maxInRange && !tooEasyWithout && !greedyReachesMax && !fewerMirrorsSuffice;
+  return { errors, max, solution, maxInRange, tooEasyWithout, greedyReachesMax, fewerMirrorsSuffice, ok };
+}
+
 const range = (rng: Rng, r: readonly [number, number]) => rng.int(r[0], r[1]);
 
 function build(rng: Rng, S: GenSettings): Puzzle {

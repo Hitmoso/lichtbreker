@@ -36,7 +36,7 @@ describe('levelcode', () => {
     for (const bad of ['', '2.7.9.3.AAAA', '1.7.9.3.!!!', good.slice(0, -4), 'kapot', '1.7.9.3']) {
       expect(decodeLevel(bad)).toBeNull();
     }
-    expect(decodeLevel(encodeLevel(fromAscii(['>..<'], 1)))).toBeNull();
+    expect(decodeLevel(encodeLevel(fromAscii(['....', '>..<', '....'], 1)))).toBeNull();
   });
 });
 
