@@ -1,12 +1,21 @@
-import { DIFFICULTIES, type Difficulty } from '../config';
-import { getDaily, type Daily } from '../core/daily';
-import { generate, type Generated } from '../core/generator';
+import type { Difficulty } from '../config';
+import type { Daily } from '../core/daily';
+import type { Generated, QualityReport } from '../core/generator';
+import type { Placement, Puzzle } from '../core/types';
+import { handleRequest } from './handle';
 
 export type WorkerRequest =
   | { kind: 'daily'; date: string }
-  | { kind: 'endless'; seed: number; difficulty: Difficulty };
+  | { kind: 'generatedDaily'; date: string }
+  | { kind: 'endless'; seed: number; difficulty: Difficulty }
+  | { kind: 'analyse'; puzzle: Puzzle };
 
 export interface WorkerOptions { workerFactory?: () => Worker | null }
+
+export interface Analysis { max: number; solution: Placement[]; report: QualityReport }
+
+/** Een verzoek dat je kunt afbreken; afgebroken → result wordt null. */
+export interface Cancelable<T> { result: Promise<T | null>; cancel(): void }
 
 const defaultFactory = (): Worker | null => {
   try {
@@ -18,12 +27,17 @@ const defaultFactory = (): Worker | null => {
 };
 
 /** Voert het verzoek uit in een Web Worker; lukt dat niet, dan op de hoofdthread. */
-function run<T>(msg: WorkerRequest, local: () => T, opts: WorkerOptions): Promise<T> {
+function run<T>(msg: WorkerRequest, opts: WorkerOptions): Cancelable<T> {
+  const local = () => handleRequest(msg) as T;
   const worker = (opts.workerFactory ?? defaultFactory)();
-  if (!worker) return Promise.resolve(local());
-  return new Promise<T>((resolve) => {
+  if (!worker) {
+    let cancelled = false;
+    return { result: Promise.resolve().then(() => (cancelled ? null : local())), cancel: () => { cancelled = true; } };
+  }
+  let finish: (v: T | null) => void = () => {};
+  const result = new Promise<T | null>((resolve) => {
     let done = false;
-    const finish = (v: T) => { if (done) return; done = true; worker.terminate(); resolve(v); };
+    finish = (v) => { if (done) return; done = true; worker.terminate(); resolve(v); };
     worker.onerror = () => finish(local());
     worker.onmessage = (e: MessageEvent<{ ok: boolean; result?: T }>) => {
       if (!e.data?.ok || e.data.result === undefined) return finish(local());
@@ -31,14 +45,27 @@ function run<T>(msg: WorkerRequest, local: () => T, opts: WorkerOptions): Promis
     };
     worker.postMessage(msg);
   });
+  return { result, cancel: () => finish(null) };
 }
+
+const once = <T>(msg: WorkerRequest, opts: WorkerOptions) => run<T>(msg, opts).result as Promise<T>;
 
 /** De dagpuzzel voor een datum ('YYYY-MM-DD'). */
 export function requestDaily(dateStr: string, opts: WorkerOptions = {}): Promise<Daily> {
-  return run({ kind: 'daily', date: dateStr }, () => getDaily(dateStr), opts);
+  return once({ kind: 'daily', date: dateStr }, opts);
+}
+
+/** De gegenereerde dagpuzzel voor een datum, zonder overrides (voor de bouwer). */
+export function requestGeneratedDaily(dateStr: string, opts: WorkerOptions = {}): Promise<Daily> {
+  return once({ kind: 'generatedDaily', date: dateStr }, opts);
 }
 
 /** Een oneindige puzzel voor een seed en niveau. */
 export function requestEndless(seed: number, difficulty: Difficulty, opts: WorkerOptions = {}): Promise<Generated> {
-  return run({ kind: 'endless', seed, difficulty }, () => generate(seed, DIFFICULTIES[difficulty]), opts);
+  return once({ kind: 'endless', seed, difficulty }, opts);
+}
+
+/** Maximum, beste oplossing en kwaliteitsrapport van een puzzel. */
+export function requestAnalyse(puzzle: Puzzle, opts: WorkerOptions = {}): Cancelable<Analysis> {
+  return run({ kind: 'analyse', puzzle }, opts);
 }
