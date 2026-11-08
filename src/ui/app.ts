@@ -59,7 +59,7 @@ export async function startApp(root: HTMLElement, hooks: AppHooks = {}): Promise
   };
   paintSound();
   const header = h('header', { class: 'top' },
-    h('h1', { class: 'brand' }, 'Lichtbreker'), numEl, h('span', { class: 'top-spacer' }), soundBtn, helpBtn, statsBtn);
+    h('h1', { class: 'brand' }, 'Lichtbreker'), numEl, h('span', { class: 'top-spacer' }), helpBtn, soundBtn, statsBtn);
 
   const host = h('div', { class: 'board-host' });
   const loading = h('p', { class: 'loading', role: 'status', hidden: true }, 'Licht wordt gebroken…');

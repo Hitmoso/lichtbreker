@@ -2,4 +2,4 @@
 import { amsterdamDate, getDaily } from '../src/core/daily';
 
 const d = getDaily(amsterdamDate(new Date()));
-console.log(JSON.stringify({ number: d.number, solution: d.solution }));
+console.log(JSON.stringify({ number: d.number, max: d.max, solution: d.solution }));

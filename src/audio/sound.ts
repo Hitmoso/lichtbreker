@@ -1,3 +1,4 @@
+import { SuspendGate } from './gate';
 import { VoicePool } from './pool';
 import { readSoundOn, writeSoundOn } from './pref';
 import { CHORD_STEPS, hitStep, noteFreq } from './scale';
@@ -50,6 +51,7 @@ export class Sound implements Sfx {
   private wet: GainNode | null = null;
   private lowpass: BiquadFilterNode | null = null;
   private pool = new VoicePool();
+  private gate = new SuspendGate();
 
   constructor(opts: { storage: Storage | null; createContext?: () => BaseAudioContext | null }) {
     this.storage = opts.storage;
@@ -111,6 +113,8 @@ export class Sound implements Sfx {
     try {
       const kit = this.ensure();
       if (!kit) return;
+      // Offline (geluidsproef) staat altijd "suspended" tot het renderen; alleen een echte context bewaken.
+      if (!('startRendering' in kit.ctx) && !this.gate.allow(kit.ctx.state)) return;
       const now = kit.ctx.currentTime;
       const out = make(kit, now + 0.005);
       for (const v of Array.isArray(out) ? out : [out]) {

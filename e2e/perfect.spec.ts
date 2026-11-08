@@ -43,10 +43,13 @@ test('perfect round with reduced motion', async ({ page }) => {
 
 test('resizing during the celebration does not freeze', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await seedPerfect(page);
+  const { max } = await seedPerfect(page);
   await ready(page);
   await fire(page);
-  for (const w of [430, 360, 400]) { await page.waitForTimeout(250); await page.setViewportSize({ width: w, height: 844 }); }
+  // Het laatste kristal is geraakt: nu begint de viering (flits, puls, golf). Resizen tijdens die viering.
+  await expect(page.locator('.counter')).toHaveText(`💎 ${max}`, { timeout: 15_000 });
+  for (const w of [430, 360, 400]) { await page.waitForTimeout(150); await page.setViewportSize({ width: w, height: 844 }); }
+  await expect(page.locator('.counter')).not.toHaveClass(/is-perfect/);
   await expect(page.getByRole('dialog', { name: 'Resultaat' })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.counter')).toHaveClass(/is-perfect/);
 });
