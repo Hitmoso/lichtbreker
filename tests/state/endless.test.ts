@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fromAscii } from '../../src/core/ascii';
-import { defaultEndless, parseEndless, recordEndlessResult } from '../../src/state/endless';
+import { puzzleId } from '../../src/core/fingerprint';
+import { FALLBACK } from '../../src/core/generator';
+import { defaultEndless, parseEndless, recordEndlessResult, savedProgress } from '../../src/state/endless';
 import { resumeGame } from '../../src/state/game';
 import { defaultState, loadState, STORAGE_KEY } from '../../src/state/storage';
 
@@ -8,6 +10,24 @@ const mem = (v: unknown) => {
   const data = new Map([[STORAGE_KEY, JSON.stringify(v)]]);
   return { getItem: (k: string) => data.get(k) ?? null, setItem: () => {} } as unknown as Storage;
 };
+
+describe('savedProgress', () => {
+  const placements = [{ x: 1, y: 1, mirror: '/' as const }];
+  it('keeps placements for the same puzzle', () => {
+    const cur = { difficulty: 'normal' as const, seed: 3, placements, submitted: true, puzzleId: puzzleId(FALLBACK) };
+    expect(savedProgress(cur, FALLBACK)).toEqual({ placements, submitted: true });
+  });
+  it('starts fresh when the generator made a different puzzle for the seed', () => {
+    const cur = { difficulty: 'normal' as const, seed: 3, placements, submitted: true, puzzleId: 'deadbeef' };
+    expect(savedProgress(cur, FALLBACK)).toEqual({ placements: [], submitted: false });
+  });
+  it('starts fresh for an old save without puzzleId', () => {
+    expect(savedProgress({ difficulty: 'normal', seed: 3, placements, submitted: false }, FALLBACK)).toEqual({ placements: [], submitted: false });
+  });
+  it('parseEndless keeps puzzleId', () => {
+    expect(parseEndless({ current: { difficulty: 'hard', seed: 12, placements: [], submitted: false, puzzleId: 'abc12345' } }).current?.puzzleId).toBe('abc12345');
+  });
+});
 
 describe('endless storage', () => {
   it('old saved state without endless still loads', () => {

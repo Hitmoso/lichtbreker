@@ -29,16 +29,7 @@ describe('DIFFICULTIES', () => {
       expect(generated).toBeGreaterThanOrEqual(95);
     }, 300_000);
 
-    it(`${d}: fast enough`, () => {
-      const times: number[] = [];
-      for (let seed = 1; seed <= 30; seed++) {
-        const t0 = performance.now();
-        generate(seed, DIFFICULTIES[d]);
-        times.push(performance.now() - t0);
-      }
-      expect(times.reduce((a, b) => a + b, 0) / times.length).toBeLessThan(400);
-      expect(Math.max(...times)).toBeLessThan(2000);
-    }, 120_000);
+    // Snelheid van de oneindige modus wordt getest in generator2.test.ts (die gebruikt generateV2).
 
     it(`${d}: fallback meets the quality bar`, () => {
       expect(meetsQuality(FALLBACKS[d], DIFFICULTIES[d]).ok).toBe(true);

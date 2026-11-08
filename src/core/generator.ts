@@ -18,7 +18,7 @@ export const FALLBACKS: Record<Difficulty, Puzzle> = {
 };
 
 /** Reservepuzzel bij deze instellingen (die van het niveau, anders de dagreserve). */
-function fallbackFor(settings: GenSettings): Puzzle {
+export function fallbackFor(settings: GenSettings): Puzzle {
   for (const [d, s] of Object.entries(DIFFICULTIES)) if (s === settings) return FALLBACKS[d as Difficulty];
   return FALLBACK;
 }

@@ -1,8 +1,16 @@
 import { DIFFICULTY_LEVELS, type Difficulty } from '../config';
-import type { Placement } from '../core/types';
+import { puzzleId } from '../core/fingerprint';
+import type { Placement, Puzzle } from '../core/types';
 
 export interface EndlessStat { played: number; perfect: number; run: number; bestRun: number }
-export interface EndlessCurrent { difficulty: Difficulty; seed: number; placements: Placement[]; submitted: boolean }
+export interface EndlessCurrent {
+  difficulty: Difficulty;
+  seed: number;
+  placements: Placement[];
+  submitted: boolean;
+  /** Vingerafdruk van de puzzel bij deze seed; verandert als de generator verandert. */
+  puzzleId?: string;
+}
 export interface EndlessState {
   difficulty: Difficulty;
   current: EndlessCurrent | null;
@@ -24,7 +32,18 @@ function parseCurrent(v: unknown): EndlessCurrent | null {
   const seedOk = typeof c.seed === 'number' && Number.isInteger(c.seed) && c.seed >= 0 && c.seed < 2 ** 32;
   if (!isLevel(c.difficulty) || !seedOk || !Array.isArray(c.placements) || typeof c.submitted !== 'boolean') return null;
   // Plaatsingen worden tegen de puzzel gecontroleerd in resumeGame.
-  return { difficulty: c.difficulty, seed: c.seed as number, placements: c.placements as Placement[], submitted: c.submitted };
+  const cur: EndlessCurrent = { difficulty: c.difficulty, seed: c.seed as number, placements: c.placements as Placement[], submitted: c.submitted };
+  if (typeof c.puzzleId === 'string') cur.puzzleId = c.puzzleId;
+  return cur;
+}
+
+/**
+ * Bewaarde voortgang voor de puzzel die de seed nu oplevert. Is dat een andere puzzel dan bij het
+ * bewaren (nieuwe generator, of een oude stand zonder vingerafdruk), dan begin je opnieuw.
+ */
+export function savedProgress(cur: EndlessCurrent, puzzle: Puzzle): { placements: Placement[]; submitted: boolean } {
+  if (cur.puzzleId !== puzzleId(puzzle)) return { placements: [], submitted: false };
+  return { placements: cur.placements, submitted: cur.submitted };
 }
 
 /** Leest de oneindige stand; ongeldige delen worden standaardwaarden. */

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { amsterdamDate, getDaily, msUntilNextPuzzle, puzzleNumber } from '../../src/core/daily';
-import { FALLBACK } from '../../src/core/generator';
+import { GEN_V2 } from '../../src/config';
+import { FALLBACK, generate } from '../../src/core/generator';
+import { generateV2 } from '../../src/core/generator2';
+import { hashSeed } from '../../src/core/rng';
 import { shareText } from '../../src/core/share';
 
 describe('amsterdamDate', () => {
@@ -43,6 +46,13 @@ describe('getDaily', () => {
     expect(getDaily('2026-11-09', { '2026-11-09': { kapot: true } }).source).toBe('generated');
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+  it('switches to generator v2 on GEN_V2.from', () => {
+    const seedOf = (date: string) => hashSeed('lichtbreker', puzzleNumber(date));
+    expect(GEN_V2.from).toBe('2026-11-10');
+    expect(getDaily('2026-11-09', {}).puzzle).toEqual(generate(seedOf('2026-11-09')).puzzle);
+    expect(getDaily('2026-11-10', {}).puzzle).toEqual(generateV2(seedOf('2026-11-10')).puzzle);
+    expect(getDaily('2027-03-01', {}).puzzle).toEqual(generateV2(seedOf('2027-03-01')).puzzle);
   });
   it('is the same puzzle for the same date', () => {
     expect(JSON.stringify(getDaily('2026-12-01', {}))).toBe(JSON.stringify(getDaily('2026-12-01', {})));

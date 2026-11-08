@@ -22,6 +22,10 @@ export interface GenSettings {
   /** Toegestaan maximum (kwaliteitseis). */
   maxScore: Range;
   attempts: number;
+  /** Alleen generator v2: uit hoeveel goede kandidaten gekozen wordt (standaard GEN_V2.candidates). */
+  candidates?: number;
+  /** Alleen generator v2: maximaal aantal pogingen voor een lokfilter (standaard GEN_V2.decoyAttempts). */
+  decoyAttempts?: number;
 }
 
 /**
@@ -43,6 +47,26 @@ export const DAILY: GenSettings = Object.freeze<GenSettings>({
   attempts: 200,
 });
 
+/**
+ * Generator versie 2: rustiger velden (opvulkristallen weg, een paar lokkertjes blijven)
+ * en kleurfilters die ertoe doen. Geldt voor dagpuzzels vanaf `from` en voor de oneindige modus.
+ * NIET aanpassen na `from`: elke wijziging verandert de puzzels van die dagen.
+ */
+export const GEN_V2 = Object.freeze({
+  /** Eerste dag (Europe/Amsterdam) met een v2-dagpuzzel. */
+  from: '2026-11-10',
+  /** Kans op een kleurfilter in een puzzel (als het niveau extra's toestaat). */
+  filterChance: 1 / 3,
+  /** Deel van de filterpuzzels met een lokfilter (verleidelijk, maar niet nodig). */
+  decoyShare: 0.4,
+  /** Maximaal aantal pogingen voor een lokfilterpuzzel. */
+  decoyAttempts: 20,
+  /** Aantal ongeraakte kristallen dat blijft liggen als lokkertje. */
+  lures: [3, 5] as const,
+  /** Uit hoeveel goede kandidaten de moeilijkste (grootste gulzig-achterstand) wint. */
+  candidates: 2,
+});
+
 /** Oude naam; gelijk aan DAILY. */
 export const GEN = DAILY;
 
@@ -57,7 +81,7 @@ export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Makkelijk',
 export const DIFFICULTIES: Record<Difficulty, GenSettings> = {
   easy: { ...DAILY, width: 5, height: 7, mirrors: [2, 3], extras: [0, 0], walls: [2, 4], crystals: [6, 9], maxScore: [4, 7] },
   normal: { ...DAILY },
-  hard: { ...DAILY, width: 8, height: 10, mirrors: [5, 6], extras: [2, 3], walls: [6, 10], crystals: [14, 20], maxScore: [9, 14] },
+  hard: { ...DAILY, width: 8, height: 10, mirrors: [5, 6], extras: [2, 3], walls: [6, 10], crystals: [14, 20], maxScore: [9, 14], candidates: 1, decoyAttempts: 6 },
 };
 
 /** Waar de bouwer dagpuzzels publiceert (GitHub-API). */

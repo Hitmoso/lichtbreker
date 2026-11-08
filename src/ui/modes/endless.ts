@@ -1,5 +1,6 @@
 import { DIFFICULTY_LEVELS, DIFFICULTY_NAMES, type Difficulty } from '../../config';
-import { recordEndlessResult, type EndlessCurrent, type EndlessState } from '../../state/endless';
+import { puzzleId } from '../../core/fingerprint';
+import { recordEndlessResult, savedProgress, type EndlessCurrent, type EndlessState } from '../../state/endless';
 import { resumeGame } from '../../state/game';
 import { requestEndless } from '../../worker/client';
 import { h } from '../dom';
@@ -74,9 +75,10 @@ export function createEndlessMode(ctx: ModeContext): Mode {
     const gen = await requestEndless(cur.seed, cur.difficulty);
     if (id !== request) return;
     ctx.setLoading(false);
-    setE({ ...getE(), current: cur });
+    const { placements, submitted } = savedProgress(cur, gen.puzzle);
+    setE({ ...getE(), current: { ...cur, placements, submitted, puzzleId: puzzleId(gen.puzzle) } });
     level.set(cur.difficulty);
-    round.set(resumeGame({ number: 0, puzzle: gen.puzzle, max: gen.max, solution: gen.solution }, cur.placements, cur.submitted));
+    round.set(resumeGame({ number: 0, puzzle: gen.puzzle, max: gen.max, solution: gen.solution }, placements, submitted));
     if (active) {
       ctx.refreshHeader();
       ctx.onPuzzle();
