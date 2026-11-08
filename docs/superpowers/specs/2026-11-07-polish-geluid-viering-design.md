@@ -43,7 +43,7 @@ Alle klanken worden in code opgewekt met de Web Audio API. Er zijn geen geluidsb
 | `remove()` | spiegel weggehaald | tik die in 120 ms een kwart omlaag glijdt |
 | `reject()` | geweigerde tik | dof "tok": lage sinus van 180 Hz met snelle uitsterving, zacht |
 | `reset()` | Opnieuw | korte neergaande reeks van drie zachte tikken |
-| `charge()` | na bevestigen van Vuur! | opzwellende adem: band-pass-ruis die in ≈ 450 ms van 400 naar 2400 Hz stijgt, plus een zachte sinus op de grondtoon |
+| `charge()` | bij het vuren | glasgolf: een glasklank (D5, bel-boventonen) die in 400 ms aanzwelt en met een tikje loslaat (gekozen uit vijf varianten op de geluidsproef) |
 | `hit(n)` | n-de kristal geraakt | glastinkel op `hitStep(n)` |
 | `perfectNote(i)` | i-de kristalpuls van de viering | belnoot uit het opbloeiende akkoord (D6/9-arpeggio over twee octaven: D F# A B E F# A, past in de pentatonische ladder) |
 | `bloom()` | schokgolf van de viering | volle akkoordwolk: de akkoordtonen samen, zachte aanzet van ≈ 60 ms, lange glinsterende uitsterving van ≈ 2,5 s |

@@ -63,7 +63,7 @@ export class Sound implements Sfx {
   private pool = new VoicePool();
   private gate = new SuspendGate();
   /** Welk vuurgeluid bij Vuur! klinkt. */
-  fireSound: FireSound = 'adem';
+  fireSound: FireSound = 'glasgolf';
 
   constructor(opts: { storage: Storage | null; createContext?: () => BaseAudioContext | null }) {
     this.storage = opts.storage;
