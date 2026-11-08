@@ -29,7 +29,7 @@ De eigenaar (en een paar vrienden) kunnen op elk apparaat, ook op een telefoon, 
   [{ "name": "max", "salt": "<b64>", "iv": "<b64>", "data": "<b64>" }]
   ```
   `data` is de GitHub-token, versleuteld met AES-GCM (256 bit) met een sleutel afgeleid van het wachtwoord via PBKDF2-SHA-256 (600 000 iteraties, 16-byte zout per account, 12-byte IV). Alleen Web Crypto (`crypto.subtle`), geen extra bibliotheken.
-- Accounts beheren gaat met een script op de computer: `npm run bouwer:account` (Node, vraagt interactief naam, wachtwoord (twee keer, verborgen) en token; voegt toe of vervangt op naam). `npm run bouwer:account -- --verwijder <naam>` verwijdert. Het script weigert wachtwoorden korter dan 10 tekens. Daarna committen en pushen.
+- Accounts beheren gaat met een script op de computer: `npm run bouwer:account` (Node, vraagt interactief naam, wachtwoord (twee keer, verborgen) en token; voegt toe of vervangt op naam). `npm run bouwer:account -- --verwijder <naam>` verwijdert. Elk wachtwoord (niet leeg) is toegestaan; bij minder dan 10 tekens toont het script alleen een waarschuwing. Daarna committen en pushen.
 - Meerdere accounts mogen dezelfde token versleutelen (vrienden publiceren via de token van de eigenaar).
 - Naam wordt hoofdletterongevoelig vergeleken. Verkeerde naam of wachtwoord geeft dezelfde melding: "Onjuiste naam of wachtwoord" (geen hint welke van de twee).
 - Na het ontsleutelen controleert de bouwer de token bij GitHub (`GET /repos/{owner}/{repo}`, `permissions.push` moet `true` zijn). Lukt dat niet: "Je sleutel werkt niet (meer). Vraag de eigenaar om een nieuwe." en de bouwer blijft dicht. Zonder netwerk: melding "Geen verbinding met GitHub", met opnieuw-knop.
@@ -39,7 +39,7 @@ De eigenaar (en een paar vrienden) kunnen op elk apparaat, ook op een telefoon, 
 - **Uitloggen** in het ⋯-menu wist beide.
 
 ### 2.4 Beveiliging (bewust geaccepteerd)
-- De repo is openbaar: het versleutelde blokje is voor iedereen leesbaar. De veiligheid rust op het wachtwoord (vandaar de minimumlengte en de hoge PBKDF2-factor).
+- De repo is openbaar: het versleutelde blokje is voor iedereen leesbaar. De veiligheid rust op het wachtwoord en de hoge PBKDF2-factor. Op verzoek van de eigenaar is er geen minimumlengte: een zwak wachtwoord is te raden, en wie het raadt kan publiceren in de repo. Bewust geaccepteerd; schade is via git terug te draaien en de token is in te trekken.
 - GitHub-tokens staan nooit leesbaar in de repo of de gebouwde site.
 - Alle Pages-sites op `hitmoso.github.io` delen één origin en dus `localStorage`. Daarom: fine-grained token, alleen voor deze repo, met minimale rechten (Contents: read/write, Actions: read, Metadata: read) en een vervaldatum. De README legt dit stap voor stap uit.
 - Een account intrekken = account verwijderen en publiceren. Wie de token zelf al heeft opgeslagen, houdt die tot de token verloopt of wordt ingetrokken; de README noemt dat (token vervangen = alle accounts opnieuw aanmaken).
