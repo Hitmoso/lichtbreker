@@ -1,37 +1,41 @@
-import { Application, BlurFilter, Container, Graphics, Rectangle } from 'pixi.js';
+import { Application, BlurFilter, Container, FillGradient, Graphics, Rectangle } from 'pixi.js';
 import type { TraceResult } from '../core/beam';
 import type { BeamColor, Cell, ElementKind, MirrorKind, Placement, Puzzle } from '../core/types';
 import { COLORS } from '../ui/tokens';
 import { beamLength, crossedNotCounted, drawBeam, drawGlints } from './beamFx';
 import { FireFx } from './fire';
 import { sharedBlur } from './filters';
+import { facetLines, innerPoints, outlinePoints } from './shapes';
 import { Tweens, easeOut, spring } from './tween';
 import { moveCursor } from '../ui/describe';
 
 const BEAM_GROW_MS = 150;
 
-/** Tekent een kristalvorm per kleur (vorm-onderscheid voor kleurenblinden). */
+/** Tekent de kristalvorm van een kleur (zie shapes.ts: ruit, druppel, smaragd, rond). */
 export function crystalShape(g: Graphics, color: BeamColor, cx: number, cy: number, r: number): Graphics {
-  switch (color) {
-    case 'white': return g.poly([cx, cy - r, cx + r * 0.75, cy, cx, cy + r, cx - r * 0.75, cy]);
-    case 'red': return g.poly([cx, cy - r, cx + r * 0.95, cy + r * 0.7, cx - r * 0.95, cy + r * 0.7]);
-    case 'green': {
-      const pts: number[] = [];
-      for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + (i * Math.PI) / 3; pts.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
-      return g.poly(pts);
-    }
-    case 'blue': return g.circle(cx, cy, r * 0.85);
-  }
+  return g.poly(outlinePoints(color, cx, cy, r));
 }
 
-/** Spiegel als lijn door het midden; '/' = -45°, '\' = +45°. */
+/** Regenboog in het prisma. Eén gedeeld verloop: een nieuw verloop per prisma zou geheugen lekken. */
+const SPECTRUM = new FillGradient({
+  type: 'linear', start: { x: 0, y: 0 }, end: { x: 1, y: 0 }, textureSpace: 'local',
+  colorStops: [{ offset: 0, color: COLORS.beam.red }, { offset: 0.35, color: COLORS.accent }, { offset: 0.65, color: COLORS.beam.green }, { offset: 1, color: COLORS.beam.blue }],
+});
+
+/**
+ * Spiegel als lijn door het midden; '/' = -45°, '\' = +45°.
+ * Jouw spiegel is licht met een zachte gloed; een vaste spiegel is doffer en zit met boutjes vast
+ * (op een plaatje, zie drawCell).
+ */
 function mirrorGraphic(cell: number, color: number, fixed: boolean): Graphics {
   const g = new Graphics();
-  const h = cell * 0.36;
-  g.moveTo(-h, 0).lineTo(h, 0).stroke({ width: Math.max(3, cell * 0.09), color, cap: 'round' });
-  g.moveTo(-h * 0.7, -cell * 0.03).lineTo(h * 0.2, -cell * 0.03).stroke({ width: Math.max(1, cell * 0.02), color: 0xffffff, alpha: 0.7, cap: 'round' });
+  const u = cell / 48;
+  const h = cell * 0.354;
+  if (!fixed) g.moveTo(-h, 0).lineTo(h, 0).stroke({ width: cell * 0.2, color: 0xaebcff, alpha: 0.16, cap: 'round' });
+  g.moveTo(-h, 0).lineTo(h, 0).stroke({ width: Math.max(3, (fixed ? 4.6 : 5.5) * u), color, cap: 'round' });
+  g.moveTo(-h * 0.7, -cell * 0.03).lineTo(h * 0.2, -cell * 0.03).stroke({ width: Math.max(1, cell * 0.022), color: 0xffffff, alpha: fixed ? 0.6 : 0.85, cap: 'round' });
   if (fixed) {
-    for (const x of [-h, h]) g.circle(x, 0, Math.max(2, cell * 0.05)).fill({ color: COLORS.wallEdge });
+    for (const x of [-h, h]) g.circle(x, 0, Math.max(2, 3 * u)).fill({ color: COLORS.wallEdge }).stroke({ width: Math.max(1, u), color: COLORS.plate });
   }
   return g;
 }
@@ -393,35 +397,55 @@ export class BoardView {
     const c = this.cell;
     const { x: cx, y: cy } = this.center(i);
     const x0 = cx - c / 2, y0 = cy - c / 2;
+    /** Eenheid: de icoontjes zijn getekend op een vak van 48. */
+    const u = c / 48;
     switch (cell.kind) {
       case 'empty': return;
       case 'wall': {
+        // Blok van metselwerk: lichte bovenrand, donkere onderrand, voegen.
         const g = new Graphics();
-        g.roundRect(x0 + 4, y0 + 4, c - 8, c - 8, Math.max(3, c * 0.12)).fill({ color: COLORS.wall }).stroke({ width: 2, color: COLORS.wallEdge, alpha: 0.9 });
-        g.moveTo(x0 + 9, y0 + 8).lineTo(x0 + c - 9, y0 + 8).stroke({ width: 1.5, color: COLORS.wallEdge, alpha: 0.6 });
+        g.roundRect(x0 + 5 * u, y0 + 5 * u, 38 * u, 38 * u, 6 * u).fill({ color: COLORS.wall }).stroke({ width: Math.max(1.5, 1.6 * u), color: COLORS.wallEdge });
+        g.roundRect(x0 + 7.5 * u, y0 + 6.5 * u, 33 * u, 4.5 * u, 2 * u).fill({ color: 0x3a4a94, alpha: 0.7 });
+        g.roundRect(x0 + 7.5 * u, y0 + 37 * u, 33 * u, 4.5 * u, 2 * u).fill({ color: COLORS.bgDeep, alpha: 0.5 });
+        g.moveTo(x0 + 6 * u, cy).lineTo(x0 + 42 * u, cy)
+          .moveTo(cx, y0 + 11 * u).lineTo(cx, cy)
+          .moveTo(x0 + 14 * u, cy).lineTo(x0 + 14 * u, y0 + 37 * u)
+          .moveTo(x0 + 34 * u, cy).lineTo(x0 + 34 * u, y0 + 37 * u)
+          .stroke({ width: Math.max(1, 1.2 * u), color: COLORS.wallEdge, alpha: 0.55 });
         this.elements.addChild(g);
         return;
       }
       case 'source': {
+        // Lampje met een loop in de schietrichting.
         const g = new Graphics();
         const glow = new Graphics().circle(cx, cy, c * 0.34).fill({ color: COLORS.beam.white, alpha: 0.5 });
         glow.filters = [sharedBlur(8)];
         const dx = [1, 0, -1, 0][cell.dir], dy = [0, 1, 0, -1][cell.dir];
-        g.roundRect(cx - c * 0.3, cy - c * 0.3, c * 0.6, c * 0.6, c * 0.18).fill({ color: COLORS.surface }).stroke({ width: 2, color: COLORS.accent });
-        g.circle(cx + dx * c * 0.12, cy + dy * c * 0.12, c * 0.1).fill({ color: COLORS.beam.white });
+        const bx = cx - dx * 3 * u, by = cy - dy * 3 * u;
+        const nw = (dx ? 13 : 11) * u, nh = (dx ? 11 : 13) * u;
+        g.roundRect(cx + dx * 12.5 * u - nw / 2, cy + dy * 12.5 * u - nh / 2, nw, nh, 2.5 * u).fill({ color: COLORS.surface }).stroke({ width: Math.max(1.5, 1.7 * u), color: COLORS.accent });
+        g.circle(bx, by, 14 * u).fill({ color: COLORS.surface }).stroke({ width: Math.max(1.5, 2 * u), color: COLORS.accent });
+        g.circle(bx, by, 9.5 * u).stroke({ width: Math.max(1, u), color: COLORS.accent, alpha: 0.4 });
+        g.circle(bx, by, 6 * u).fill({ color: COLORS.beam.white });
+        g.circle(bx - 2 * u, by - 2 * u, 1.8 * u).fill({ color: 0xffffff });
         this.elements.addChild(glow, g);
         return;
       }
       case 'crystal': {
+        // Geslepen steen: doorschijnende omtrek, facetlijnen naar een helder middenvlak.
         const node = new Container();
-        const r = c * 0.26;
-        const glow = crystalShape(new Graphics(), cell.color, cx, cy, r * 1.5).fill({ color: COLORS.crystal[cell.color], alpha: 0.9 });
+        const col = COLORS.crystal[cell.color];
+        const r = c * 0.33;
+        const glow = crystalShape(new Graphics(), cell.color, cx, cy, r * 1.3).fill({ color: col, alpha: 0.9 });
         glow.filters = [sharedBlur(7)];
         glow.blendMode = 'add';
         glow.alpha = 0;
-        const body = crystalShape(new Graphics(), cell.color, cx, cy, r).fill({ color: COLORS.crystal[cell.color], alpha: 0.28 }).stroke({ width: 2, color: COLORS.crystal[cell.color], alpha: 0.95 });
+        const body = crystalShape(new Graphics(), cell.color, cx, cy, r).fill({ color: col, alpha: 0.2 }).stroke({ width: Math.max(1.5, 1.7 * u), color: col, join: 'round' });
+        for (const [x1, y1, x2, y2] of facetLines(cell.color, cx, cy, r)) body.moveTo(x1, y1).lineTo(x2, y2);
+        body.stroke({ width: Math.max(1, u), color: col, alpha: 0.6 });
+        body.poly(innerPoints(cell.color, cx, cy, r)).fill({ color: col, alpha: 0.5 }).stroke({ width: Math.max(1, u), color: 0xffffff, alpha: 0.75, join: 'round' });
         // Donker plaatje dat de straal onder een niet-tellend kristal afdekt.
-        const plate = new Graphics().circle(cx, cy, r * 1.15).fill({ color: COLORS.plate, alpha: 0.9 });
+        const plate = new Graphics().circle(cx, cy, r * 1.05).fill({ color: COLORS.plate, alpha: 0.9 });
         plate.visible = false;
         node.addChild(plate, glow, body);
         this.crystalLayer.addChild(node);
@@ -431,32 +455,32 @@ export class BoardView {
         return;
       }
       case 'prism': {
+        // Glazen driehoek met een regenboog erin (blijft ook klein zichtbaar).
         const g = new Graphics();
-        const r = c * 0.32;
-        const pts = [cx, cy - r, cx + r * 0.95, cy + r * 0.7, cx - r * 0.95, cy + r * 0.7];
-        g.poly(pts).fill({ color: 0xffffff, alpha: 0.08 }).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
-        const spectrum = [COLORS.beam.red, COLORS.accent, COLORS.beam.green, COLORS.beam.blue];
-        spectrum.forEach((col, k) => {
-          const t = (k + 1) / (spectrum.length + 1);
-          g.moveTo(cx - r * 0.5 + t * r * 0.2, cy + r * 0.45 - t * r * 0.9).lineTo(cx + r * 0.1 + t * r * 0.5, cy + r * 0.45 - t * r * 0.3)
-            .stroke({ width: 1.5, color: col, alpha: 0.8, cap: 'round' });
-        });
+        const tri = (k: number, my: number) => [0, -16, 16, 13, -16, 13].map((v, n) => (n % 2 === 0 ? cx + v * k * u : cy + (my + (v - my) * k) * u));
+        g.poly(tri(1, 0)).fill({ color: 0xffffff, alpha: 0.1 }).stroke({ width: Math.max(1.5, 1.8 * u), color: 0xffffff, join: 'round' });
+        g.poly(tri(0.58, 3.3)).fill({ fill: SPECTRUM, alpha: 0.85 });
         this.elements.addChild(g);
         return;
       }
       case 'filter': {
+        // Gekleurd ruitje met de kristalvorm van die kleur groot in het midden.
         const g = new Graphics();
         const col = COLORS.beam[cell.color];
-        g.roundRect(x0 + 6, y0 + 6, c - 12, c - 12, Math.max(4, c * 0.16)).fill({ color: col, alpha: 0.18 }).stroke({ width: 2, color: col, alpha: 0.8 });
-        crystalShape(g, cell.color, cx, cy, c * 0.1).fill({ color: col, alpha: 0.9 });
+        g.roundRect(x0 + 6 * u, y0 + 6 * u, 36 * u, 36 * u, 8 * u).fill({ color: col, alpha: 0.16 }).stroke({ width: Math.max(1.5, 1.7 * u), color: col });
+        g.moveTo(x0 + 11 * u, y0 + 19 * u).lineTo(x0 + 19 * u, y0 + 11 * u).moveTo(x0 + 11 * u, y0 + 25 * u).lineTo(x0 + 25 * u, y0 + 11 * u)
+          .stroke({ width: Math.max(1, 1.4 * u), color: 0xffffff, alpha: 0.35, cap: 'round' });
+        crystalShape(g, cell.color, cx, cy, c * 0.2).fill({ color: col, alpha: 0.25 }).stroke({ width: Math.max(1.5, 2 * u), color: col, join: 'round' });
         this.elements.addChild(g);
         return;
       }
       case 'fixedMirror': {
+        // Op een vierkant plaatje met boutjes: duidelijk anders dan je eigen spiegel.
+        const plate = new Graphics().roundRect(x0 + 7 * u, y0 + 7 * u, 34 * u, 34 * u, 10 * u).fill({ color: COLORS.wall }).stroke({ width: Math.max(1.5, 1.6 * u), color: COLORS.wallEdge });
         const g = mirrorGraphic(c, COLORS.fixedMirror, true);
         g.position.set(cx, cy);
         g.rotation = mirrorAngle(cell.mirror);
-        this.elements.addChild(g);
+        this.elements.addChild(plate, g);
         return;
       }
     }
