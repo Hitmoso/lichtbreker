@@ -265,5 +265,275 @@
         "kind": "empty"
       }
     ]
+  },
+  "2026-11-09": {
+    "version": 1,
+    "width": 8,
+    "height": 10,
+    "mirrors": 6,
+    "cells": [
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "prism"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "prism"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "source",
+        "dir": 2
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "fixedMirror",
+        "mirror": "/"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "fixedMirror",
+        "mirror": "\\"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "fixedMirror",
+        "mirror": "/"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "wall"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "empty"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      },
+      {
+        "kind": "crystal",
+        "color": "white"
+      }
+    ]
   }
 }
