@@ -27,7 +27,7 @@ const TEXT: Record<HelpKind, [string, string]> = {
 export const TIP: Record<ElementKind, string> = {
   fixedMirror: 'Vaste spiegel: kaatst de straal, maar zit vast.',
   prism: 'Prisma: splitst de straal in twee.',
-  filter: 'Kleurfilter: kleurt de straal. Daarna lichten alleen kristallen in die kleur op, witte niet meer.',
+  filter: 'Kleurfilter: kleurt de straal. Daarna tellen alleen kristallen in die kleur.',
 };
 
 export const elementKinds = (p: Puzzle): ElementKind[] =>

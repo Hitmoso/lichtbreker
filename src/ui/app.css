@@ -103,8 +103,14 @@
   70% { transform: scale(0.95); }
   100% { transform: scale(1); }
 }
+.counter.is-tick { animation: counter-tick 0.28s var(--ease-out); }
+@keyframes counter-tick {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .counter.is-perfect { animation: none; }
+  .counter.is-perfect, .counter.is-tick { animation: none; }
 }
 
 .actions {
@@ -229,6 +235,8 @@
   top: 6px;
   left: 50%;
   margin: 0;
+  /* Zonder vaste breedte wordt een gecentreerd absoluut blok maar half zo breed als het podium. */
+  width: max-content;
   max-width: min(92%, 420px);
   padding: 10px 14px;
   border-radius: 14px;

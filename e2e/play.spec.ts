@@ -85,3 +85,31 @@ test('with mirrors left, the confirmation says how many', async ({ page }) => {
   await expect(dialog).toContainText('Nog spiegels over');
   await expect(dialog).toContainText(`Je hebt nog ${total - 1} spiegels over`);
 });
+
+test('a live counter shows how many crystals the beam hits', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await skipTutorial(page);
+  await ready(page);
+  const counter = page.locator('.counter');
+  await expect(counter).toHaveClass(/is-visible/);
+  await expect(counter).toHaveText(/^💎 \d+$/);
+  await placeOneMirror(page);
+  await expect(counter).toHaveText(/^💎 \d+$/);
+  // Het maximum blijft geheim tot na het vuren.
+  await expect(counter).not.toHaveClass(/is-perfect/);
+});
+
+test('a first-seen tip does not cover the board', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await skipTutorial(page);
+  await ready(page);
+  const tip = page.locator('.tip.is-on');
+  // Niet elke dagpuzzel heeft een nieuw element; zonder tip valt er niets te controleren.
+  if (!(await tip.count().then((n) => n > 0).catch(() => false))) {
+    await page.waitForTimeout(400);
+    if ((await tip.count()) === 0) return;
+  }
+  const t = (await tip.first().boundingBox())!;
+  const b = (await page.locator('.board-host canvas').boundingBox())!;
+  expect(t.y + t.height <= b.y + 1 || t.y >= b.y + b.height - 1).toBe(true);
+});
