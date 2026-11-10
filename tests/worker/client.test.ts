@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/config';
 import { getDaily } from '../../src/core/daily';
 import { FALLBACK } from '../../src/core/generator';
-import { generateV2 } from '../../src/core/generator2';
+import { generateV3 } from '../../src/core/generator3';
 import { solve } from '../../src/core/solver';
 import { requestAnalyse, requestDaily, requestEndless, requestGeneratedDaily, type WorkerRequest } from '../../src/worker/client';
 import { handleRequest } from '../../src/worker/handle';
@@ -39,7 +39,7 @@ describe('requestDaily', () => {
 });
 
 describe('requestEndless', () => {
-  const expected = JSON.stringify(generateV2(7, DIFFICULTIES.easy));
+  const expected = JSON.stringify(generateV3(7, DIFFICULTIES.easy));
   it('falls back to the main thread without a worker', async () => {
     expect(JSON.stringify(await requestEndless(7, 'easy', { workerFactory: () => null }))).toBe(expected);
   });

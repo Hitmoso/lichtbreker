@@ -67,6 +67,29 @@ export const GEN_V2 = Object.freeze({
   candidates: 2,
 });
 
+/**
+ * Generator versie 3: eerst de route, dan de puzzel, met een thema per puzzel (zie generator3.ts).
+ * Geldt voor dagpuzzels vanaf `from`. NIET aanpassen na `from`: elke wijziging verandert de puzzels van die dagen.
+ */
+export const GEN_V3 = Object.freeze({
+  /** Eerste dag (Europe/Amsterdam) met een v3-dagpuzzel. */
+  from: '2026-11-24',
+  /** Aantal kristallen buiten de beste oplossing (lokkertjes). */
+  lures: [3, 5] as const,
+  /** Muren die vooraf op het veld komen; wat niets doet, gaat later weer weg. */
+  preWalls: [1, 3] as const,
+  /** Gulzig spelen moet minstens zoveel onder het maximum blijven (op niveaus met extra's). */
+  minGap: 2,
+  /** Deel van de breedte en van de hoogte dat de route minstens moet beslaan. */
+  spread: 0.7,
+  /** Zoekstappen per keer oplossen; een veld dat meer vraagt, wordt overgeslagen (te zwaar voor een telefoon). */
+  budget: 20_000,
+  /** Hetzelfde voor velden groter dan 7×9 (Moeilijk). */
+  budgetLarge: 40_000,
+  /** Pogingen per puzzel; daarna levert generator v2 de puzzel. */
+  attempts: 60,
+});
+
 /** Oude naam; gelijk aan DAILY. */
 export const GEN = DAILY;
 

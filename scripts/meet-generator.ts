@@ -6,6 +6,7 @@ import { DAILY, DIFFICULTIES, type GenSettings } from '../src/config';
 import { trace } from '../src/core/beam';
 import { generate } from '../src/core/generator';
 import { generateV2 } from '../src/core/generator2';
+import { generateV3 } from '../src/core/generator3';
 import { greedy } from '../src/core/greedy';
 import { hashSeed } from '../src/core/rng';
 import { solve } from '../src/core/solver';
@@ -81,5 +82,8 @@ const dailySeeds = Array.from({ length: N }, (_, i) => hashSeed('lichtbreker', i
 const anySeeds = Array.from({ length: N }, (_, i) => hashSeed('meting', i));
 measure('Dagpuzzel v1 (oud)', (s) => generate(s), dailySeeds, DAILY);
 measure('Dagpuzzel v2 (vanaf 10 nov)', (s) => generateV2(s), dailySeeds, DAILY);
+measure('Dagpuzzel v3', (s) => generateV3(s), dailySeeds, DAILY);
+measure('Oneindig Makkelijk (v3)', (s) => generateV3(s, DIFFICULTIES.easy), anySeeds, DIFFICULTIES.easy);
+measure('Oneindig Moeilijk (v3)', (s) => generateV3(s, DIFFICULTIES.hard), anySeeds, DIFFICULTIES.hard);
 measure('Oneindig Makkelijk (v2)', (s) => generateV2(s, DIFFICULTIES.easy), anySeeds, DIFFICULTIES.easy);
 measure('Oneindig Moeilijk (v2)', (s) => generateV2(s, DIFFICULTIES.hard), anySeeds, DIFFICULTIES.hard);

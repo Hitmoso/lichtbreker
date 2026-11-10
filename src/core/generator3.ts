@@ -1,0 +1,329 @@
+import { DAILY, GEN_V3, type GenSettings } from '../config';
+import { score, trace } from './beam';
+import type { Generated } from './generator';
+import { generateV2, withoutFilters } from './generator2';
+import { greedy } from './greedy';
+import { createRng, hashSeed, type Rng } from './rng';
+import { solveWithin } from './solver';
+import { validatePuzzle } from './validate';
+import { DX, DY, FILTER_COLORS, REFLECT } from './types';
+import type { BeamColor, Cell, Dir, FilterColor, MirrorKind, Placement, Puzzle } from './types';
+
+/**
+ * Generator versie 3 (zie GEN_V3): eerst de route, dan de puzzel.
+ *
+ * v1 en v2 strooien stukken en kijken achteraf of het een goede puzzel is. Daardoor doen veel
+ * stukken niet mee. v3 draait het om:
+ * 1. kies een thema (lange schoten, slinger, kruising, prisma, kleur, kaatsbaan);
+ * 2. leg een route: bron, spiegels en eventueel prisma/vaste spiegels, zo dat elk stuk geraakt wordt;
+ * 3. zet kristallen op de route (bij een filter: daarachter in de filterkleur);
+ * 4. laat de solver zoeken naar iets beters en zet daar een muur neer (elke muur heeft dus een reden);
+ * 5. leg een paar lokkertjes op verleidelijke plekken naast de route;
+ * 6. keur: de gewone kwaliteitseisen, plus "elk prisma, filter en elke vaste spiegel is nodig".
+ * Lukt het niet binnen GEN_V3.attempts pogingen, dan valt v3 terug op generator v2.
+ */
+export type Theme = 'schoten' | 'slinger' | 'kruising' | 'prisma' | 'kleur' | 'kaats';
+export const THEMES: readonly Theme[] = ['schoten', 'slinger', 'kruising', 'prisma', 'kleur', 'kaats'];
+const PLAIN: readonly Theme[] = ['schoten', 'slinger', 'kruising'];
+
+export interface GeneratedV3 extends Generated {
+  /** Het thema; null als v3 niets vond en generator v2 de puzzel leverde. */
+  theme: Theme | null;
+}
+
+interface Features {
+  /** Kortste stuk straal na een bocht. */
+  minLeg: number;
+  /** Spelersspiegels. */
+  mirrors: number;
+  fixed: number;
+  prism: boolean;
+  filter: boolean;
+  /** De route moet zichzelf kruisen. */
+  cross: boolean;
+  /** Kristallen in rijtjes op één lijn. */
+  runs: boolean;
+}
+
+const range = (rng: Rng, r: readonly [number, number]) => rng.int(r[0], r[1]);
+const withCells = (p: Puzzle, cells: Cell[]): Puzzle => ({ ...p, cells });
+const swap = (p: Puzzle, i: number, c: Cell): Puzzle => withCells(p, p.cells.map((x, j) => (j === i ? c : x)));
+const WALL: Cell = { kind: 'wall' };
+const EMPTY: Cell = { kind: 'empty' };
+
+interface Pass { colors: Set<BeamColor>; dirs: Set<Dir> }
+
+/** Elk vak waar de straal doorheen gaat (in straalvolgorde), met de kleuren en richtingen waarin dat gebeurt. */
+function beamMap(p: Puzzle, placements: readonly Placement[]): Map<number, Pass> {
+  const out = new Map<number, Pass>();
+  for (const s of trace(p, placements).segments) {
+    const dx = Math.sign(s.to.x - s.from.x), dy = Math.sign(s.to.y - s.from.y);
+    const dir = (dx === 1 ? 0 : dy === 1 ? 1 : dx === -1 ? 2 : 3) as Dir;
+    const len = Math.floor(Math.abs(s.to.x - s.from.x) + Math.abs(s.to.y - s.from.y));
+    for (let k = 0; k <= len; k++) {
+      const x = Math.floor(s.from.x + dx * k), y = Math.floor(s.from.y + dy * k);
+      if (x < 0 || y < 0 || x >= p.width || y >= p.height) continue;
+      const i = y * p.width + x;
+      let pass = out.get(i);
+      if (!pass) out.set(i, (pass = { colors: new Set(), dirs: new Set() }));
+      pass.colors.add(s.color);
+      pass.dirs.add(dir);
+    }
+  }
+  return out;
+}
+
+function featuresFor(theme: Theme, rng: Rng, S: GenSettings): Features {
+  const [lo, hi] = S.mirrors;
+  const mid = Math.floor((lo + hi) / 2);
+  const f: Features = { minLeg: 1, mirrors: range(rng, S.mirrors), fixed: 0, prism: false, filter: false, cross: false, runs: false };
+  if (theme === 'schoten') { f.minLeg = Math.min(3, Math.floor(Math.min(S.width, S.height) / 2)); f.mirrors = rng.int(lo, mid); f.runs = true; }
+  if (theme === 'slinger') f.mirrors = rng.int(Math.max(lo, mid), hi);
+  if (theme === 'kruising') { f.cross = true; f.minLeg = 2; }
+  if (theme === 'prisma') f.prism = true;
+  if (theme === 'kleur') f.filter = true;
+  if (theme === 'kaats') { f.fixed = rng.int(Math.min(2, S.fixedMirrors[1]), S.fixedMirrors[1]); f.mirrors = rng.int(lo, Math.max(lo, mid)); }
+  // Niveaus die altijd meerdere extra's willen (Moeilijk): nog een tweede element erbij.
+  if (S.extras[0] >= 2) {
+    const more = rng.shuffle(['prism', 'filter', 'fixed'].filter((k) => !(k === 'prism' ? f.prism : k === 'filter' ? f.filter : f.fixed > 0)));
+    for (const k of more.slice(0, f.prism || f.filter || f.fixed ? 1 : 2)) {
+      if (k === 'prism') f.prism = true;
+      else if (k === 'filter') f.filter = true;
+      else f.fixed = range(rng, S.fixedMirrors);
+    }
+  }
+  return f;
+}
+
+interface Route { puzzle: Puzzle; mirrors: Placement[] }
+
+/** Legt de bron en daarna bocht voor bocht de route. Geeft null als het niet past. */
+function layRoute(rng: Rng, S: GenSettings, F: Features): Route | null {
+  const { width: w, height: h } = S;
+  const cells: Cell[] = Array.from({ length: w * h }, () => EMPTY);
+  const side = rng.int(0, 3);
+  let sx: number, sy: number, dir: Dir;
+  if (side === 0) { sx = 0; sy = rng.int(1, h - 2); dir = 0; }
+  else if (side === 1) { sx = rng.int(1, w - 2); sy = 0; dir = 1; }
+  else if (side === 2) { sx = w - 1; sy = rng.int(1, h - 2); dir = 2; }
+  else { sx = rng.int(1, w - 2); sy = h - 1; dir = 3; }
+  cells[sy * w + sx] = { kind: 'source', dir };
+
+  // Een paar muren vooraf: de route buigt eromheen of stopt ertegen. Wat niets doet, gaat later weer weg.
+  const front = new Set([1, 2].map((k) => (sy + DY[dir] * k) * w + sx + DX[dir] * k));
+  const free = rng.shuffle(cells.flatMap((c, i) => (c.kind === 'empty' && !front.has(i) ? [i] : [])));
+  for (let k = range(rng, GEN_V3.preWalls); k > 0; k--) cells[free.pop()!] = WALL;
+
+  let p: Puzzle = { version: 1, width: w, height: h, mirrors: F.mirrors, cells };
+  const mirrors: Placement[] = [];
+  const turns: number[] = [];
+  const taken = () => new Set(mirrors.map((m) => m.y * w + m.x));
+
+  /** Aantal vrije vakken vanaf vak `i` in richting `d`. */
+  const freeRun = (i: number, d: Dir): number => {
+    const block = taken();
+    let x = i % w, y = Math.floor(i / w), n = 0;
+    for (;;) {
+      x += DX[d]; y += DY[d];
+      if (x < 0 || y < 0 || x >= w || y >= h) return n;
+      const j = y * w + x;
+      if (p.cells[j].kind !== 'empty' || block.has(j)) return n;
+      n++;
+    }
+  };
+
+  const kinds: ('m' | 'f' | 'p')[] = rng.shuffle([...Array(F.mirrors).fill('m'), ...Array(F.fixed).fill('f')]);
+  if (F.prism) kinds.splice(rng.int(0, Math.max(0, Math.min(2, kinds.length - 2))), 0, 'p');
+
+  for (const kind of kinds) {
+    const map = beamMap(p, mirrors);
+    const block = taken();
+    const spots = rng.shuffle([...map].filter(([i, pass]) => p.cells[i].kind === 'empty' && !block.has(i) && pass.dirs.size === 1).map(([i, pass]) => ({ i, d: [...pass.dirs][0] })));
+    let placed = false;
+    for (const { i, d } of spots) {
+      const tries: { p: Puzzle; mirrors: Placement[] }[] = [];
+      if (kind === 'p') {
+        if (freeRun(i, ((d + 1) % 4) as Dir) >= 2 && freeRun(i, ((d + 3) % 4) as Dir) >= 2) tries.push({ p: swap(p, i, { kind: 'prism' }), mirrors });
+      } else {
+        for (const m of rng.shuffle<MirrorKind>(['/', '\\'])) {
+          if (freeRun(i, REFLECT[m][d]) < F.minLeg) continue;
+          if (kind === 'f') tries.push({ p: swap(p, i, { kind: 'fixedMirror', mirror: m }), mirrors });
+          else tries.push({ p, mirrors: [...mirrors, { x: i % w, y: Math.floor(i / w), mirror: m }] });
+        }
+      }
+      for (const t of tries) {
+        // Elke eerdere bocht moet nog steeds geraakt worden.
+        const next = beamMap(t.p, t.mirrors);
+        if (!turns.every((c) => next.has(c))) continue;
+        p = t.p;
+        mirrors.splice(0, mirrors.length, ...t.mirrors);
+        turns.push(i);
+        placed = true;
+        break;
+      }
+      if (placed) break;
+    }
+    if (!placed) return null;
+  }
+  // De route moet het veld gebruiken, niet in één hoek blijven hangen.
+  const xs = [...beamMap(p, mirrors).keys()].map((i) => i % w), ys = [...beamMap(p, mirrors).keys()].map((i) => Math.floor(i / w));
+  if (Math.max(...xs) - Math.min(...xs) + 1 < Math.ceil(w * GEN_V3.spread) || Math.max(...ys) - Math.min(...ys) + 1 < Math.ceil(h * GEN_V3.spread)) return null;
+  if (F.cross && ![...beamMap(p, mirrors)].some(([i, pass]) => pass.dirs.size > 1 && p.cells[i].kind === 'empty' && !taken().has(i))) return null;
+  return { puzzle: p, mirrors };
+}
+
+/** Zet (bij een kleurthema) het filter en daarna de kristallen op de route. */
+function addCrystals(route: Route, rng: Rng, S: GenSettings, F: Features): Puzzle | null {
+  let p = route.puzzle;
+  const taken = new Set(route.mirrors.map((m) => m.y * p.width + m.x));
+  const spotsOf = (q: Puzzle) => [...beamMap(q, route.mirrors)].filter(([i]) => q.cells[i].kind === 'empty' && !taken.has(i));
+
+  if (F.filter) {
+    const before = spotsOf(p).filter(([, pass]) => pass.dirs.size === 1).map(([i]) => i);
+    // Niet vooraan (er moet eerst wit te halen zijn) en niet achteraan (er moet nog kleur te halen zijn).
+    const options = rng.shuffle(before.slice(2, Math.max(2, before.length - 3)));
+    const color = rng.pick<FilterColor>(FILTER_COLORS);
+    let done = false;
+    for (const i of options.slice(0, 6)) {
+      const q = swap(p, i, { kind: 'filter', color });
+      const s = spotsOf(q);
+      const coloured = s.filter(([, pass]) => pass.colors.has(color)).length;
+      if (coloured >= 3 && s.length - coloured >= 2) { p = q; done = true; break; }
+    }
+    if (!done) return null;
+  }
+
+  const spots = spotsOf(p);
+  const want = Math.min(range(rng, [S.maxScore[0] + 1, S.maxScore[1]]), spots.length - 2);
+  if (want < S.maxScore[0]) return null;
+  const chosen = new Set<number>();
+  if (F.runs) {
+    // Rijtjes van 3-4 op elkaar volgende routevakken.
+    for (let guard = 0; chosen.size < want && guard < 40; guard++) {
+      const start = rng.int(0, spots.length - 1);
+      for (let k = 0, len = rng.int(3, 4); k < len && start + k < spots.length && chosen.size < want; k++) chosen.add(start + k);
+    }
+  }
+  const order = rng.shuffle(spots.map((_, k) => k));
+  for (const k of order) { if (chosen.size >= want) break; chosen.add(k); }
+
+  const cells = [...p.cells];
+  let whiteTrap = F.filter ? 1 : 0;
+  spots.forEach(([i, pass], k) => {
+    const colors = [...pass.colors];
+    if (chosen.has(k)) cells[i] = { kind: 'crystal', color: colors[rng.int(0, colors.length - 1)] };
+    // Een wit kristal op het gekleurde stuk: de straal gaat erdoorheen, maar het telt niet.
+    else if (whiteTrap > 0 && !pass.colors.has('white')) { cells[i] = { kind: 'crystal', color: 'white' }; whiteTrap--; }
+  });
+  return withCells(p, cells);
+}
+
+interface Candidate { puzzle: Puzzle; max: number; solution: Placement[] }
+
+/** Gulzig spelen blijft genoeg achter, en zonder spiegels raak je nog niet de helft. */
+function hardEnough(p: Puzzle, S: GenSettings, max: number): boolean {
+  if (score(p, new Map()) * 2 >= max) return false;
+  return max - greedy(p).score >= (S.extras[1] === 0 ? 1 : GEN_V3.minGap);
+}
+
+function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
+  const F = featuresFor(theme, rng, S);
+  // Routes leggen is goedkoop (geen solver), dus een paar keer proberen voor het dure werk begint.
+  let route: Route | null = null;
+  let p: Puzzle | null = null;
+  for (let k = 0; k < 40 && !p; k++) {
+    route = layRoute(rng, S, F);
+    p = route && addCrystals(route, rng, S, F);
+  }
+  if (!p || !route) return null;
+  const plan = route.mirrors;
+  const designed = trace(p, plan).score;
+  if (designed < S.maxScore[0] || designed > S.maxScore[1]) return null;
+
+  // Muren van vooraf die de route niet raakt, gaan weg; wat blijft, houdt de straal tegen.
+  const routeKey = (q: Puzzle) => JSON.stringify(trace(q, plan).segments);
+  for (const i of p.cells.flatMap((c, j) => (c.kind === 'wall' ? [j] : []))) {
+    const without = swap(p, i, EMPTY);
+    if (routeKey(without) === routeKey(p)) p = without;
+  }
+  if (!hardEnough(p, S, designed)) return null;
+
+  const onRoute = beamMap(p, plan);
+  const keep = new Set(plan.map((m) => m.y * p!.width + m.x));
+  const freeOff = (q: Puzzle, i: number) => q.cells[i].kind === 'empty' && !onRoute.has(i) && !keep.has(i);
+  // Zoeken met een grens: een veld waar de solver eindeloos op zoekt, is ook voor de telefoon te zwaar.
+  const search = (q: Puzzle, mirrors = q.mirrors) => solveWithin(q, mirrors, q.cells.length > 63 ? GEN_V3.budgetLarge : GEN_V3.budget);
+
+  // Vindt de solver iets beters dan de route? Zet daar een muur. Zo heeft elke muur een reden.
+  let best = search(p);
+  for (let k = 0; k < 6 && best.exact && best.max > designed; k++) {
+    const q: Puzzle = p;
+    const theirs = best.solution.map((m) => m.y * q.width + m.x).filter((i) => freeOff(q, i));
+    const beam = [...beamMap(q, best.solution).keys()].filter((i) => freeOff(q, i));
+    const options = theirs.length ? theirs : beam;
+    if (!options.length) return null;
+    p = swap(q, rng.pick(options), WALL);
+    best = search(p);
+  }
+  if (!best.exact || best.max !== designed) return null;
+  // Alle spiegels moeten nodig zijn. (Lokkertjes kunnen dit nog veranderen; daarom straks nog eens.)
+  const fewer = search(p, p.mirrors - 1);
+  if (!fewer.exact || fewer.max >= designed) return null;
+
+  // Lokkertjes op plekken waar een voor de hand liggende (maar mindere) speelwijze langskomt.
+  const tempting = new Set<number>();
+  for (const pl of [greedy(p).placements, fewer.solution, [] as Placement[]]) {
+    for (const i of beamMap(p, pl).keys()) if (freeOff(p, i)) tempting.add(i);
+  }
+  const planHit = trace(p, plan).hit;
+  const already = p.cells.filter((c, i) => c.kind === 'crystal' && !planHit.has(i)).length;
+  const lureCount = Math.max(0, range(rng, GEN_V3.lures) - already);
+  const others = p.cells.flatMap((_, i) => (freeOff(p!, i) && !tempting.has(i) ? [i] : []));
+  const picks = [...rng.shuffle([...tempting]), ...rng.shuffle(others)].slice(0, lureCount);
+  const lureColors: BeamColor[] = ['white', ...p.cells.flatMap((c) => (c.kind === 'filter' ? [c.color] : []))];
+  let lures = new Set(picks);
+  const base: Puzzle = p;
+  const withLures = () => withCells(base, base.cells.map((c, i) => (lures.has(i) ? ({ kind: 'crystal', color: lureColors[i % lureColors.length] } as Cell) : c)));
+  p = withLures();
+  best = search(p);
+  for (let k = 0; k < 3 && best.exact && best.max > designed; k++) {
+    // Een lokkertje maakte een betere route mogelijk: haal weg wat die route raakt.
+    const hit = trace(p, best.solution).hit;
+    lures = new Set([...lures].filter((i) => !hit.has(i)));
+    p = withLures();
+    best = search(p);
+  }
+  if (!best.exact || best.max !== designed) return null;
+  if (!hardEnough(p, S, designed)) return null;
+  if (lures.size > 0) {
+    const again = search(p, p.mirrors - 1);
+    if (!again.exact || again.max >= designed) return null;
+  }
+
+  // Elk bijzonder stuk moet nodig zijn voor het maximum.
+  const needed = (q: Puzzle) => { const r = search(q); return r.exact && r.max < designed; };
+  for (let i = 0; i < p.cells.length; i++) {
+    const kind = p.cells[i].kind;
+    if ((kind === 'prism' || kind === 'fixedMirror') && !needed(swap(p, i, WALL))) return null;
+  }
+  if (p.cells.some((c) => c.kind === 'filter') && !needed(withoutFilters(p))) return null;
+  if (validatePuzzle(p).length) return null;
+  return { puzzle: p, max: best.max, solution: best.solution };
+}
+
+/** Het thema van een seed. Niveaus zonder extra's (Makkelijk) krijgen alleen de kale thema's. */
+export function themeFor(seed: number, S: GenSettings): Theme {
+  const r = createRng(hashSeed(seed, 'v3-thema'));
+  return r.pick(S.extras[1] === 0 ? PLAIN : THEMES);
+}
+
+/** Voorspelbare v3-puzzel voor een seed (standaard: dagpuzzel-instellingen). */
+export function generateV3(seed: number, settings: GenSettings = DAILY): GeneratedV3 {
+  const theme = themeFor(seed, settings);
+  for (let a = 0; a < GEN_V3.attempts; a++) {
+    const c = attempt(createRng(hashSeed(seed, 'v3', theme, a)), settings, theme);
+    if (c) return { puzzle: c.puzzle, max: c.max, solution: c.solution, source: 'generated', theme };
+  }
+  const g = generateV2(seed, settings);
+  return { puzzle: g.puzzle, max: g.max, solution: g.solution, source: g.source, theme: null };
+}

@@ -7,6 +7,7 @@ import { DIFFICULTIES, type GenSettings, DAILY } from '../src/config';
 import { toAscii } from '../src/core/ascii';
 import { trace, walk } from '../src/core/beam';
 import { generateV2 } from '../src/core/generator2';
+import { generateV3 } from '../src/core/generator3';
 import { greedy } from '../src/core/greedy';
 import { hashSeed } from '../src/core/rng';
 import { solve } from '../src/core/solver';
@@ -14,6 +15,8 @@ import type { Cell, MirrorKind, Placement, Puzzle } from '../src/core/types';
 
 const nums = process.argv.filter((a) => /^\d+$/.test(a)).map(Number);
 const N = nums[0] ?? 100, SHOW = nums[1] ?? 6;
+const V3 = process.argv.includes('v3');
+const gen = (seed: number, S: GenSettings) => (V3 ? generateV3(seed, S) : { ...generateV2(seed, S), theme: undefined });
 const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const f1 = (n: number) => n.toFixed(1);
 const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)}%` : '-');
@@ -58,7 +61,7 @@ function draw(p: Puzzle, sol: readonly Placement[]): string[] {
 
 function study(name: string, S: GenSettings, seeds: number[]) {
   const rows = seeds.map((seed, n) => {
-    const g = generateV2(seed, S);
+    const g = gen(seed, S);
     const p = g.puzzle;
     const t = trace(p, g.solution);
     const base = key(t.hit);
@@ -85,7 +88,7 @@ function study(name: string, S: GenSettings, seeds: number[]) {
     const first = gr.placements[0];
     const firstInSol = !!first && g.solution.some((m) => m.x === first.x && m.y === first.y && m.mirror === first.mirror);
     if (n < SHOW) {
-      console.log(`\n#${n + 1}  max ${g.max} met ${p.mirrors} spiegels | gulzig ${gr.score} | ${o.setups} beste opstellingen, ${o.hitSets} verschillende uitkomsten | filterplan ${g.filter}`);
+      console.log(`\n#${n + 1}  max ${g.max} met ${p.mirrors} spiegels | gulzig ${gr.score} | ${o.setups} beste opstellingen, ${o.hitSets} verschillende uitkomsten | ${V3 ? 'thema ' + g.theme : 'v2'}`);
       console.log(draw(p, g.solution).join('\n'));
     }
     return {
@@ -107,5 +110,5 @@ function study(name: string, S: GenSettings, seeds: number[]) {
   console.log(`leeg deel van het veld: gem ${pct(avg(rows.map((r) => r.empty)) * 100, 100)}`);
 }
 
-study('Dagpuzzel v2', DAILY, Array.from({ length: N }, (_, i) => hashSeed('lichtbreker', i + 4)));
+study(`Dagpuzzel ${V3 ? 'v3' : 'v2'}`, DAILY, Array.from({ length: N }, (_, i) => hashSeed('lichtbreker', i + 4)));
 study('Oneindig Moeilijk', DIFFICULTIES.hard, Array.from({ length: Math.min(N, 40) }, (_, i) => hashSeed('meting', i)));
