@@ -4,7 +4,7 @@ import { getDaily } from '../../src/core/daily';
 import { FALLBACK } from '../../src/core/generator';
 import { generateV3 } from '../../src/core/generator3';
 import { solve } from '../../src/core/solver';
-import { requestAnalyse, requestDaily, requestEndless, requestGeneratedDaily, type WorkerRequest } from '../../src/worker/client';
+import { requestAnalyse, requestDaily, requestEndless, requestThemed, requestGeneratedDaily, type WorkerRequest } from '../../src/worker/client';
 import { handleRequest } from '../../src/worker/handle';
 
 /** Bootst de echte worker na (zelfde protocol). */
@@ -35,6 +35,14 @@ describe('requestDaily', () => {
   });
   it('uses the worker result when it works', async () => {
     expect(JSON.stringify(await requestDaily('2026-11-07', { workerFactory: fake('echo') }))).toBe(expected);
+  });
+});
+
+describe('requestThemed', () => {
+  it('asks for a puzzle with the chosen theme', async () => {
+    const r = await requestThemed(11, 'normal', 'prisma', { workerFactory: () => null });
+    expect(r.theme).toBe('prisma');
+    expect(JSON.stringify(r)).toBe(JSON.stringify(generateV3(11, DIFFICULTIES.normal, 'prisma')));
   });
 });
 

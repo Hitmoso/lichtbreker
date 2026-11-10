@@ -24,6 +24,10 @@ import type { BeamColor, Cell, Dir, FilterColor, MirrorKind, Placement, Puzzle }
  */
 export type Theme = 'schoten' | 'slinger' | 'kruising' | 'prisma' | 'kleur' | 'kaats';
 export const THEMES: readonly Theme[] = ['schoten', 'slinger', 'kruising', 'prisma', 'kleur', 'kaats'];
+/** Namen voor in de bouwer. */
+export const THEME_NAMES: Record<Theme, string> = {
+  schoten: 'Lange schoten', slinger: 'Slinger', kruising: 'Kruising', prisma: 'Prisma', kleur: 'Kleur', kaats: 'Kaatsbaan',
+};
 const PLAIN: readonly Theme[] = ['schoten', 'slinger', 'kruising'];
 
 export interface GeneratedV3 extends Generated {
@@ -367,9 +371,12 @@ export function themeFor(seed: number, S: GenSettings): Theme {
   return r.pick(S.extras[1] === 0 ? PLAIN : THEMES);
 }
 
-/** Voorspelbare v3-puzzel voor een seed (standaard: dagpuzzel-instellingen). */
-export function generateV3(seed: number, settings: GenSettings = DAILY): GeneratedV3 {
-  const theme = themeFor(seed, settings);
+/**
+ * Voorspelbare v3-puzzel voor een seed (standaard: dagpuzzel-instellingen).
+ * Met `chosen` (de bouwer) wordt dat thema gebouwd in plaats van het thema van de seed.
+ */
+export function generateV3(seed: number, settings: GenSettings = DAILY, chosen?: Theme): GeneratedV3 {
+  const theme = chosen ?? themeFor(seed, settings);
   for (let a = 0; a < GEN_V3.attempts; a++) {
     const c = attempt(createRng(hashSeed(seed, 'v3', theme, a)), settings, theme);
     if (c) return { puzzle: c.puzzle, max: c.max, solution: c.solution, source: 'generated', theme };

@@ -193,3 +193,15 @@ for (const [name, w, h] of [['phone', 375, 812], ['desktop', 1280, 800]] as cons
     expect(await noScroll(page)).toEqual({ v: true, h: true });
   });
 }
+
+test('generates a puzzle with a chosen theme', async ({ page }) => {
+  await mockGithub(page);
+  await loginAs(page);
+  await page.getByRole('button', { name: 'Meer' }).click();
+  await pause(page);
+  if (process.env.KIJK_OUT) await page.screenshot({ path: `${process.env.KIJK_OUT}/menu-thema.png` });
+  await page.getByRole('button', { name: 'Prisma', exact: true }).click();
+  await expect(page.locator('.ed-toast')).toHaveText('Thema: Prisma', { timeout: 15_000 });
+  await expect.poll(async () => (await draft(page)).puzzle.cells.some((c: { kind: string }) => c.kind === 'prism')).toBe(true);
+  if (process.env.KIJK_OUT) await page.screenshot({ path: `${process.env.KIJK_OUT}/na-thema.png` });
+});

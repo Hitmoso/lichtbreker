@@ -9,7 +9,7 @@ export function handleRequest(msg: WorkerRequest): unknown {
   switch (msg.kind) {
     case 'daily': return getDaily(msg.date);
     case 'generatedDaily': return getDaily(msg.date, {});
-    case 'endless': return generateV3(msg.seed, DIFFICULTIES[msg.difficulty]);
+    case 'endless': return generateV3(msg.seed, DIFFICULTIES[msg.difficulty], msg.theme);
     case 'analyse': {
       const report = qualityReport(msg.puzzle, undefined, ANALYSE_BUDGET);
       return { max: report.max, solution: report.solution, report };

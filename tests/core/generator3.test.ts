@@ -3,7 +3,7 @@ import { DAILY, DIFFICULTIES, GEN_V3, type Difficulty } from '../../src/config';
 import { trace } from '../../src/core/beam';
 import { meetsQuality } from '../../src/core/generator';
 import { withoutFilters } from '../../src/core/generator2';
-import { generateV3, THEMES } from '../../src/core/generator3';
+import { generateV3, THEME_NAMES, THEMES } from '../../src/core/generator3';
 import { greedy } from '../../src/core/greedy';
 import { hashSeed } from '../../src/core/rng';
 import { solve } from '../../src/core/solver';
@@ -128,6 +128,23 @@ describe('generateV3 (dagpuzzel)', () => {
         4163670049,
       ]
     `);
+  });
+});
+
+describe('generateV3 (gekozen thema, voor de bouwer)', () => {
+  it('builds the theme that was asked for', () => {
+    for (const theme of THEMES) {
+      const r = generateV3(hashSeed('bouwer', theme), DAILY, theme);
+      expect(r.theme, theme).toBe(theme);
+      const has = (k: Cell['kind']) => r.puzzle.cells.some((c) => c.kind === k);
+      if (theme === 'prisma') expect(has('prism')).toBe(true);
+      if (theme === 'kleur') expect(has('filter')).toBe(true);
+      if (theme === 'kaats') expect(has('fixedMirror')).toBe(true);
+      expect(meetsQuality(r.puzzle).ok).toBe(true);
+    }
+  });
+  it('gives every theme a name', () => {
+    for (const theme of THEMES) expect(THEME_NAMES[theme].length).toBeGreaterThan(2);
   });
 });
 

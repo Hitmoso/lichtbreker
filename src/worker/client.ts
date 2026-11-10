@@ -1,13 +1,14 @@
 import type { Difficulty } from '../config';
 import type { Daily } from '../core/daily';
 import type { Generated, QualityReport } from '../core/generator';
+import type { GeneratedV3, Theme } from '../core/generator3';
 import type { Placement, Puzzle } from '../core/types';
 import { handleRequest } from './handle';
 
 export type WorkerRequest =
   | { kind: 'daily'; date: string }
   | { kind: 'generatedDaily'; date: string }
-  | { kind: 'endless'; seed: number; difficulty: Difficulty }
+  | { kind: 'endless'; seed: number; difficulty: Difficulty; theme?: Theme }
   | { kind: 'analyse'; puzzle: Puzzle };
 
 export interface WorkerOptions { workerFactory?: () => Worker | null }
@@ -63,6 +64,11 @@ export function requestGeneratedDaily(dateStr: string, opts: WorkerOptions = {})
 /** Een oneindige puzzel voor een seed en niveau. */
 export function requestEndless(seed: number, difficulty: Difficulty, opts: WorkerOptions = {}): Promise<Generated> {
   return once({ kind: 'endless', seed, difficulty }, opts);
+}
+
+/** Een gegenereerde puzzel met een gekozen thema (voor de bouwer). `theme` in het antwoord is null als het niet lukte. */
+export function requestThemed(seed: number, difficulty: Difficulty, theme: Theme, opts: WorkerOptions = {}): Promise<GeneratedV3> {
+  return once({ kind: 'endless', seed, difficulty, theme }, opts);
 }
 
 /** Maximum, beste oplossing en kwaliteitsrapport van een puzzel. */
