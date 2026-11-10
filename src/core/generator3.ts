@@ -33,6 +33,8 @@ const PLAIN: readonly Theme[] = ['schoten', 'slinger', 'kruising'];
 export interface GeneratedV3 extends Generated {
   /** Het thema; null als v3 niets vond en generator v2 de puzzel leverde. */
   theme: Theme | null;
+  /** Celindex van een lokstuk (prisma, vaste spiegel of filter dat verleidt maar niet nodig is), anders null. */
+  decoy: number | null;
 }
 
 interface Features {
@@ -79,7 +81,11 @@ function beamMap(p: Puzzle, placements: readonly Placement[]): Map<number, Pass>
   return out;
 }
 
-function featuresFor(theme: Theme, rng: Rng, S: GenSettings): Features {
+type Extra = 'prism' | 'filter' | 'fixed';
+const THEME_EXTRA: Partial<Record<Theme, Extra>> = { prisma: 'prism', kleur: 'filter', kaats: 'fixed' };
+
+/** `skip`: een soort die niet als gewoon stuk mag meedoen (omdat die straks als lokstuk komt). */
+function featuresFor(theme: Theme, rng: Rng, S: GenSettings, skip: Extra | null): Features {
   const [lo, hi] = S.mirrors;
   const mid = Math.floor((lo + hi) / 2);
   const f: Features = { minLeg: 1, mirrors: range(rng, S.mirrors), fixed: 0, prism: false, filter: false, cross: false, runs: false, lineCap: 2 };
@@ -92,9 +98,9 @@ function featuresFor(theme: Theme, rng: Rng, S: GenSettings): Features {
   // Daarnaast, net als in v2, een aantal extra elementsoorten (S.extras); het thema-element telt mee.
   const has = { prism: f.prism, filter: f.filter, fixed: f.fixed > 0 };
   const want = S.extras[1] === 0 ? 0 : range(rng, S.extras);
-  for (const k of rng.shuffle<'prism' | 'filter' | 'fixed'>(['prism', 'filter', 'fixed'])) {
+  for (const k of rng.shuffle<Extra>(['prism', 'filter', 'fixed'])) {
     if (Object.values(has).filter(Boolean).length >= want) break;
-    if (has[k]) continue;
+    if (has[k] || k === skip) continue;
     has[k] = true;
     if (k === 'prism') f.prism = true;
     else if (k === 'filter') f.filter = true;
@@ -243,16 +249,66 @@ function addCrystals(route: Route, rng: Rng, S: GenSettings, F: Features): Puzzl
   return withCells(p, cells);
 }
 
-interface Candidate { puzzle: Puzzle; max: number; solution: Placement[] }
+interface Candidate { puzzle: Puzzle; max: number; solution: Placement[]; decoy: number | null }
+
+/**
+ * Lokstuk: een prisma, vaste spiegel of filter op een voor de hand liggende (maar mindere) route,
+ * met een paar eigen kristallen erachter. Verleidelijk: via het lokstuk haal je bijna het maximum.
+ * Niet nodig: de echte route raakt het niet en het maximum blijft gelijk.
+ */
+function addDecoy(
+  p: Puzzle, plan: readonly Placement[], alts: readonly (readonly Placement[])[], kind: Extra, rng: Rng, designed: number,
+  freeOff: (q: Puzzle, i: number) => boolean, search: (q: Puzzle) => { max: number; exact: boolean },
+): { puzzle: Puzzle; cell: number } | null {
+  const w = p.width;
+  let searches = 0;
+  for (const alt of alts) {
+    const altBeam = beamMap(p, alt);
+    const altKeep = new Set(alt.map((m) => m.y * w + m.x));
+    const open = (q: Puzzle, i: number) => freeOff(q, i) && !altKeep.has(i);
+    const spots = rng.shuffle([...altBeam].filter(([i, pass]) => open(p, i) && pass.dirs.size === 1).map(([i]) => i)).slice(0, 8);
+    for (const i of spots) {
+      const variants: Cell[] = kind === 'prism' ? [{ kind: 'prism' }]
+        : kind === 'fixed' ? rng.shuffle<Cell>([{ kind: 'fixedMirror', mirror: '/' }, { kind: 'fixedMirror', mirror: '\\' }])
+        : [{ kind: 'filter', color: rng.pick<FilterColor>(FILTER_COLORS) }];
+      for (const v of variants) {
+        const q = swap(p, i, v);
+        const color = v.kind === 'filter' ? v.color : null;
+        // Vakken die de lokroute door het lokstuk erbij krijgt (bij een filter: het gekleurde stuk erachter).
+        const gained = [...beamMap(q, alt)]
+          .filter(([j, pass]) => j !== i && open(q, j) && (color ? pass.colors.has(color) : !altBeam.has(j)))
+          .map(([j, pass]) => ({ j, color: color ?? [...pass.colors][0] }));
+        if (gained.length < 2) continue;
+        const picks = rng.shuffle(gained).slice(0, rng.int(2, 3));
+        let made = q;
+        for (const g of picks) made = swap(made, g.j, { kind: 'crystal', color: g.color });
+        if (trace(made, plan).score !== designed) continue;
+        const lure = trace(made, alt);
+        if (lure.score < designed - GEN_V3.decoyGap || !picks.some((g) => lure.hit.has(g.j))) continue;
+        // Oplossen is het dure deel: na een paar mislukte kandidaten geen lokstuk.
+        if (++searches > 5) return null;
+        const best = search(made);
+        if (!best.exact || best.max !== designed) continue;
+        return { puzzle: made, cell: i };
+      }
+    }
+  }
+  return null;
+}
 
 /** Gulzig spelen blijft genoeg achter, en zonder spiegels raak je nog niet de helft. */
-function hardEnough(p: Puzzle, S: GenSettings, max: number): boolean {
+function hardEnough(p: Puzzle, S: GenSettings, max: number, withDecoy = false): boolean {
   if (score(p, new Map()) * 2 >= max) return false;
-  return max - greedy(p).score >= (S.extras[1] === 0 ? 1 : GEN_V3.minGap);
+  // Met een lokstuk mag gulzig spelen dichterbij komen: de lokroute is juist bijna goed.
+  return max - greedy(p).score >= (S.extras[1] === 0 || withDecoy ? 1 : GEN_V3.minGap);
 }
 
 function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
-  const F = featuresFor(theme, rng, S);
+  // Soms komt er een lokstuk bij; nooit van de soort van het thema.
+  const decoyKind: Extra | null = S.extras[1] > 0 && rng.next() < (S.width * S.height > 63 ? GEN_V3.decoyChanceLarge : GEN_V3.decoyChance)
+    ? rng.pick((['prism', 'filter', 'fixed'] as Extra[]).filter((k) => k !== THEME_EXTRA[theme]))
+    : null;
+  const F = featuresFor(theme, rng, S, decoyKind);
   // Routes leggen is goedkoop (geen solver), dus een paar keer proberen voor het dure werk begint.
   let route: Route | null = null;
   let p: Puzzle | null = null;
@@ -305,6 +361,9 @@ function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
   const fewer = search(p, p.mirrors - 1);
   if (!fewer.exact || fewer.max >= designed) return null;
 
+  // Het slot (lokkertjes en keuring) als functie: mislukt het mét lokstuk, dan nog eens zonder.
+  const finish = (start: Puzzle, decoy: number | null): Candidate | null => {
+  let p: Puzzle = start;
   // Lokkertjes op plekken waar een voor de hand liggende (maar mindere) speelwijze langskomt.
   const tempting = new Set<number>();
   for (const pl of [greedy(p).placements, fewer.solution, [] as Placement[]]) {
@@ -344,8 +403,8 @@ function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
     best = search(p);
   }
   if (!best.exact || best.max !== designed) return null;
-  if (!hardEnough(p, S, designed)) return null;
-  if (lures.size > 0) {
+  if (!hardEnough(p, S, designed, decoy !== null)) return null;
+  if (lures.size > 0 || decoy !== null) {
     const again = search(p, p.mirrors - 1);
     if (!again.exact || again.max >= designed) return null;
   }
@@ -356,13 +415,25 @@ function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
   const used = (q: Puzzle) => trace(q, best.solution).score < designed;
   for (let i = 0; i < p.cells.length; i++) {
     const kind = p.cells[i].kind;
-    if (kind !== 'prism' && kind !== 'fixedMirror') continue;
+    if ((kind !== 'prism' && kind !== 'fixedMirror') || i === decoy) continue;
     const strict = kind === 'prism' ? theme === 'prisma' : theme === 'kaats';
     if (!(strict ? needed : used)(swap(p, i, WALL))) return null;
   }
-  if (p.cells.some((c) => c.kind === 'filter') && !needed(withoutFilters(p))) return null;
+  if (p.cells.some((c, i) => c.kind === 'filter' && i !== decoy) && !needed(withoutFilters(p))) return null;
+  // Het lokstuk mag door de lokkertjes niet alsnog nodig zijn geworden.
+  if (decoy !== null) { const r = search(swap(p, decoy, WALL)); if (!r.exact || r.max !== designed) return null; }
   if (validatePuzzle(p).length) return null;
-  return { puzzle: p, max: best.max, solution: best.solution };
+  return { puzzle: p, max: best.max, solution: best.solution, decoy };
+  };
+
+  if (decoyKind) {
+    // Lokroutes: de echte route met één spiegel minder (je slaat een bocht over), en de beste route met een spiegel minder.
+    const shorter = rng.shuffle(plan.map((_, k) => plan.filter((__, n) => n !== k)));
+    const made = addDecoy(p, plan, [...shorter, fewer.solution, greedy(p).placements], decoyKind, rng, designed, freeOff, search);
+    const c = made && finish(made.puzzle, made.cell);
+    if (c) return c;
+  }
+  return finish(p, null);
 }
 
 /** Het thema van een seed. Niveaus zonder extra's (Makkelijk) krijgen alleen de kale thema's. */
@@ -379,8 +450,8 @@ export function generateV3(seed: number, settings: GenSettings = DAILY, chosen?:
   const theme = chosen ?? themeFor(seed, settings);
   for (let a = 0; a < GEN_V3.attempts; a++) {
     const c = attempt(createRng(hashSeed(seed, 'v3', theme, a)), settings, theme);
-    if (c) return { puzzle: c.puzzle, max: c.max, solution: c.solution, source: 'generated', theme };
+    if (c) return { puzzle: c.puzzle, max: c.max, solution: c.solution, source: 'generated', theme, decoy: c.decoy };
   }
   const g = generateV2(seed, settings);
-  return { puzzle: g.puzzle, max: g.max, solution: g.solution, source: g.source, theme: null };
+  return { puzzle: g.puzzle, max: g.max, solution: g.solution, source: g.source, theme: null, decoy: null };
 }

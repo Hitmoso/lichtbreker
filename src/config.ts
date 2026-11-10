@@ -76,6 +76,12 @@ export const GEN_V3 = Object.freeze({
   from: '2026-11-24',
   /** Aantal kristallen buiten de beste oplossing (lokkertjes). */
   lures: [3, 5] as const,
+  /** Kans dat een puzzel (op niveaus met extra's) een lokstuk probeert: verleidelijk, maar niet nodig. Lukt niet altijd. */
+  decoyChance: 0.6,
+  /** Hetzelfde voor velden groter dan 7×9 (Moeilijk); daar lukt een lokstuk vaker. */
+  decoyChanceLarge: 0.25,
+  /** Via het lokstuk haal je hooguit zoveel minder dan het maximum. */
+  decoyGap: 2,
   /** Gulzig spelen moet minstens zoveel onder het maximum blijven (op niveaus met extra's). */
   minGap: 2,
   /** Extra muren bovenop het aantal van het niveau; muren die ver van de route liggen, gaan later weer weg. */

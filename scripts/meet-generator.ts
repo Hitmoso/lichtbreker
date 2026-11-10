@@ -63,6 +63,7 @@ function measure(name: string, gen: (seed: number) => { puzzle: Puzzle; max: num
       line: (() => { const r = new Map<number, number>(), c = new Map<number, number>(); p.cells.forEach((x, i) => { if (x.kind !== 'crystal') return; r.set(Math.floor(i / p.width), (r.get(Math.floor(i / p.width)) ?? 0) + 1); c.set(i % p.width, (c.get(i % p.width) ?? 0) + 1); }); return Math.max(...r.values(), ...c.values()); })(),
       empty: count(p, (x) => x.kind === 'empty') / p.cells.length,
       theme: (g as { theme?: string | null }).theme,
+      decoy: (() => { const d = (g as { decoy?: number | null }).decoy; return d === null || d === undefined ? '' : p.cells[d].kind; })(),
     };
   });
   const n = rows.length;
@@ -83,6 +84,8 @@ function measure(name: string, gen: (seed: number) => { puzzle: Puzzle; max: num
   console.log(`meeste kristallen in één rij/kolom: gem ${f1(avg(rows.map((r) => r.line)))}; puzzels met 4+: ${pct(rows.filter((r) => r.line >= 4).length, n)} | leeg veld: ${pct(avg(rows.map((r) => r.empty)) * 100, 100)}`);
   const th: Record<string, number> = {}; for (const r of rows) th[String(r.theme)] = (th[String(r.theme)] ?? 0) + 1;
   console.log(`thema's: ${JSON.stringify(th)}`);
+  const dk: Record<string, number> = {}; for (const r of rows) if (r.decoy) dk[r.decoy] = (dk[r.decoy] ?? 0) + 1;
+  console.log(`lokstukken: ${pct(rows.filter((r) => r.decoy).length, n)} ${JSON.stringify(dk)}`);
   console.log(`oplossingsspiegels die vervangbaar zijn (max ook haalbaar zonder dat vak): gem ${f1(avg(rows.map((r) => r.alt)))} van ${f1(avg(rows.map((r) => r.mirrors)))}`);
 }
 

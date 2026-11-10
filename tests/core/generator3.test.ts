@@ -32,10 +32,11 @@ describe('generateV3 (dagpuzzel)', () => {
     }
   });
 
-  it('every prism and fixed mirror takes part in the best solution', () => {
+  it('every prism and fixed mirror takes part in the best solution (except a decoy)', () => {
     for (const r of own) {
       for (const kind of ['prism', 'fixedMirror'] as const) {
         for (const i of indices(r.puzzle, kind)) {
+          if (i === r.decoy) continue;
           expect(trace(swap(r.puzzle, i, { kind: 'wall' }), r.solution).score, `${kind} doet niet mee`).toBeLessThan(r.max);
         }
       }
@@ -50,11 +51,28 @@ describe('generateV3 (dagpuzzel)', () => {
     }
   });
 
-  it('every filter is needed for the maximum', () => {
+  it('every filter is needed for the maximum (except a decoy)', () => {
     for (const r of own) {
       if (!r.puzzle.cells.some((c) => c.kind === 'filter')) continue;
+      if (r.decoy !== null && r.puzzle.cells[r.decoy].kind === 'filter') continue;
       expect(solve(withoutFilters(r.puzzle)).max).toBeLessThan(r.max);
     }
+  });
+
+  it('now and then a piece is a decoy: tempting, but not needed', () => {
+    const decoys = own.filter((r) => r.decoy !== null);
+    expect(decoys.length).toBeGreaterThanOrEqual(3);
+    expect(decoys.length / own.length).toBeLessThanOrEqual(0.3);
+    for (const r of decoys) {
+      const cell = r.puzzle.cells[r.decoy!];
+      expect(['prism', 'fixedMirror', 'filter']).toContain(cell.kind);
+      // Niet nodig: zonder het lokstuk is het maximum even hoog.
+      expect(solve(swap(r.puzzle, r.decoy!, { kind: 'wall' })).max).toBe(r.max);
+      // Nooit het element van het thema.
+      const themeKind = r.theme === 'prisma' ? 'prism' : r.theme === 'kaats' ? 'fixedMirror' : r.theme === 'kleur' ? 'filter' : null;
+      expect(cell.kind).not.toBe(themeKind);
+    }
+    for (const r of results) if (r.theme === null) expect(r.decoy).toBeNull();
   });
 
   it('walls are terrain around the route: none lies far from every good route', () => {
@@ -103,7 +121,8 @@ describe('generateV3 (dagpuzzel)', () => {
   });
 
   it('is not solved by greedy play', () => {
-    for (const r of own) expect(r.max - greedy(r.puzzle).score).toBeGreaterThanOrEqual(GEN_V3.minGap);
+    // Met een lokstuk mag gulzig dichterbij komen (de lokroute is bijna goed), maar nooit het maximum halen.
+    for (const r of own) expect(r.max - greedy(r.puzzle).score).toBeGreaterThanOrEqual(r.decoy === null ? GEN_V3.minGap : 1);
   });
 
   it('uses every theme, and each theme shows its element', () => {
@@ -121,11 +140,11 @@ describe('generateV3 (dagpuzzel)', () => {
     const prints = SEEDS.slice(0, 5).map((s) => hashSeed(JSON.stringify(generateV3(s).puzzle)));
     expect(prints).toMatchInlineSnapshot(`
       [
-        2730363418,
-        2624024532,
-        1841991199,
-        4285913084,
-        4163670049,
+        452256831,
+        354319117,
+        525423918,
+        23615245,
+        260705933,
       ]
     `);
   });
