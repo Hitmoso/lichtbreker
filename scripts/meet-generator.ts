@@ -37,7 +37,9 @@ function hitSets(p: Puzzle, max: number): number {
   return alternatives;
 }
 
+const ONLY = process.argv.find((a) => /^v\d$/.test(a));
 function measure(name: string, gen: (seed: number) => { puzzle: Puzzle; max: number; solution: Placement[]; source: string; filter?: string }, seeds: number[], S: GenSettings) {
+  if (ONLY && !name.includes(ONLY)) return;
   const rows = seeds.map((seed) => {
     const t0 = performance.now();
     const g = gen(seed);
@@ -57,7 +59,10 @@ function measure(name: string, gen: (seed: number) => { puzzle: Puzzle; max: num
       hasFixed, fixedMatters: hasFixed && solve(wallAt(p, 'fixedMirror')).max < g.max,
       walls: count(p, (c) => c.kind === 'wall'), coloured: count(p, (c) => c.kind === 'crystal' && c.color !== 'white'),
       plain: !hasFilter && !hasPrism && !hasFixed,
-      alt: hitSets(p, g.max), plan: g.filter ?? '-',
+      alt: ONLY ? 0 : hitSets(p, g.max), plan: g.filter ?? '-',
+      line: (() => { const r = new Map<number, number>(), c = new Map<number, number>(); p.cells.forEach((x, i) => { if (x.kind !== 'crystal') return; r.set(Math.floor(i / p.width), (r.get(Math.floor(i / p.width)) ?? 0) + 1); c.set(i % p.width, (c.get(i % p.width) ?? 0) + 1); }); return Math.max(...r.values(), ...c.values()); })(),
+      empty: count(p, (x) => x.kind === 'empty') / p.cells.length,
+      theme: (g as { theme?: string | null }).theme,
     };
   });
   const n = rows.length;
@@ -75,6 +80,9 @@ function measure(name: string, gen: (seed: number) => { puzzle: Puzzle; max: num
   console.log(`prisma aanwezig: ${pct(nP, n)}; daarvan nodig: ${pct(rows.filter((r) => r.prismMatters).length, nP)}`);
   console.log(`vaste spiegel aanwezig: ${pct(nM, n)}; daarvan nodig: ${pct(rows.filter((r) => r.fixedMatters).length, nM)}`);
   console.log(`kaal (alleen muren+kristallen): ${pct(rows.filter((r) => r.plain).length, n)} | gekleurde kristallen gem ${f1(avg(rows.map((r) => r.coloured)))}`);
+  console.log(`meeste kristallen in één rij/kolom: gem ${f1(avg(rows.map((r) => r.line)))}; puzzels met 4+: ${pct(rows.filter((r) => r.line >= 4).length, n)} | leeg veld: ${pct(avg(rows.map((r) => r.empty)) * 100, 100)}`);
+  const th: Record<string, number> = {}; for (const r of rows) th[String(r.theme)] = (th[String(r.theme)] ?? 0) + 1;
+  console.log(`thema's: ${JSON.stringify(th)}`);
   console.log(`oplossingsspiegels die vervangbaar zijn (max ook haalbaar zonder dat vak): gem ${f1(avg(rows.map((r) => r.alt)))} van ${f1(avg(rows.map((r) => r.mirrors)))}`);
 }
 

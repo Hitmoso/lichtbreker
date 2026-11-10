@@ -76,10 +76,10 @@ export const GEN_V3 = Object.freeze({
   from: '2026-11-24',
   /** Aantal kristallen buiten de beste oplossing (lokkertjes). */
   lures: [3, 5] as const,
-  /** Muren die vooraf op het veld komen; wat niets doet, gaat later weer weg. */
-  preWalls: [1, 3] as const,
   /** Gulzig spelen moet minstens zoveel onder het maximum blijven (op niveaus met extra's). */
   minGap: 2,
+  /** Extra muren bovenop het aantal van het niveau; muren die ver van de route liggen, gaan later weer weg. */
+  extraWalls: 2,
   /** Deel van de breedte en van de hoogte dat de route minstens moet beslaan. */
   spread: 0.7,
   /** Zoekstappen per keer oplossen; een veld dat meer vraagt, wordt overgeslagen (te zwaar voor een telefoon). */

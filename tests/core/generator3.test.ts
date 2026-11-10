@@ -32,13 +32,21 @@ describe('generateV3 (dagpuzzel)', () => {
     }
   });
 
-  it('every prism and fixed mirror is needed for the maximum', () => {
+  it('every prism and fixed mirror takes part in the best solution', () => {
     for (const r of own) {
       for (const kind of ['prism', 'fixedMirror'] as const) {
         for (const i of indices(r.puzzle, kind)) {
-          expect(solve(swap(r.puzzle, i, { kind: 'wall' })).max, `${kind} doet niet mee`).toBeLessThan(r.max);
+          expect(trace(swap(r.puzzle, i, { kind: 'wall' }), r.solution).score, `${kind} doet niet mee`).toBeLessThan(r.max);
         }
       }
+    }
+  });
+
+  it('the element of the theme is needed for the maximum', () => {
+    for (const r of own) {
+      const kind = r.theme === 'prisma' ? 'prism' : r.theme === 'kaats' ? 'fixedMirror' : null;
+      if (!kind) continue;
+      for (const i of indices(r.puzzle, kind)) expect(solve(swap(r.puzzle, i, { kind: 'wall' })).max).toBeLessThan(r.max);
     }
   });
 
@@ -49,18 +57,41 @@ describe('generateV3 (dagpuzzel)', () => {
     }
   });
 
-  it('walls have a job: most stop the beam or decide the maximum', () => {
-    let walls = 0, useful = 0;
+  it('walls are terrain around the route: none lies far from every good route', () => {
+    let walls = 0, near = 0;
     for (const r of own) {
-      const beam = JSON.stringify(trace(r.puzzle, r.solution).segments);
+      const w = r.puzzle.width;
+      // Vakken waar de beste straal komt (segmenten lopen van vakmidden naar vakmidden of vakrand).
+      const beam = new Set<number>();
+      for (const s of trace(r.puzzle, r.solution).segments) {
+        const dx = Math.sign(s.to.x - s.from.x), dy = Math.sign(s.to.y - s.from.y);
+        const len = Math.floor(Math.abs(s.to.x - s.from.x) + Math.abs(s.to.y - s.from.y));
+        for (let k = 0; k <= len; k++) beam.add(Math.floor(s.from.y + dy * k) * w + Math.floor(s.from.x + dx * k));
+      }
       for (const i of indices(r.puzzle, 'wall')) {
         walls++;
-        const without = swap(r.puzzle, i, { kind: 'empty' });
-        if (JSON.stringify(trace(without, r.solution).segments) !== beam || solve(without).max !== r.max) useful++;
+        const x = i % w, y = Math.floor(i / w);
+        const touches = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]].some(([ax, ay]) => beam.has((y + ay) * w + x + ax));
+        if (touches || solve(swap(r.puzzle, i, { kind: 'empty' })).max !== r.max) near++;
       }
     }
-    expect(walls).toBeGreaterThan(0);
-    expect(useful / walls).toBeGreaterThanOrEqual(0.8);
+    expect(walls / own.length).toBeGreaterThanOrEqual(2);
+    expect(near / walls).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it('crystals are spread: rarely more than 3 in one row or column', () => {
+    let crowded = 0;
+    for (const r of own) {
+      const w = r.puzzle.width;
+      const rows = new Map<number, number>(), cols = new Map<number, number>();
+      r.puzzle.cells.forEach((c, i) => {
+        if (c.kind !== 'crystal') return;
+        rows.set(Math.floor(i / w), (rows.get(Math.floor(i / w)) ?? 0) + 1);
+        cols.set(i % w, (cols.get(i % w) ?? 0) + 1);
+      });
+      if (Math.max(...rows.values(), ...cols.values()) > 3) crowded++;
+    }
+    expect(crowded / own.length).toBeLessThanOrEqual(0.25);
   });
 
   it('is tidy: at most 5 crystals outside the best solution', () => {
@@ -90,11 +121,11 @@ describe('generateV3 (dagpuzzel)', () => {
     const prints = SEEDS.slice(0, 5).map((s) => hashSeed(JSON.stringify(generateV3(s).puzzle)));
     expect(prints).toMatchInlineSnapshot(`
       [
-        2527938778,
-        510356746,
-        1750273964,
-        3307725373,
-        3882335210,
+        2730363418,
+        2624024532,
+        1841991199,
+        4285913084,
+        4163670049,
       ]
     `);
   });

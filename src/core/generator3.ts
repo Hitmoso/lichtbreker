@@ -43,6 +43,8 @@ interface Features {
   cross: boolean;
   /** Kristallen in rijtjes op één lijn. */
   runs: boolean;
+  /** Hoogste aantal kristallen in één rij of kolom. */
+  lineCap: number;
 }
 
 const range = (rng: Rng, r: readonly [number, number]) => rng.int(r[0], r[1]);
@@ -76,22 +78,26 @@ function beamMap(p: Puzzle, placements: readonly Placement[]): Map<number, Pass>
 function featuresFor(theme: Theme, rng: Rng, S: GenSettings): Features {
   const [lo, hi] = S.mirrors;
   const mid = Math.floor((lo + hi) / 2);
-  const f: Features = { minLeg: 1, mirrors: range(rng, S.mirrors), fixed: 0, prism: false, filter: false, cross: false, runs: false };
+  const f: Features = { minLeg: 1, mirrors: range(rng, S.mirrors), fixed: 0, prism: false, filter: false, cross: false, runs: false, lineCap: 2 };
   if (theme === 'schoten') { f.minLeg = Math.min(3, Math.floor(Math.min(S.width, S.height) / 2)); f.mirrors = rng.int(lo, mid); f.runs = true; }
   if (theme === 'slinger') f.mirrors = rng.int(Math.max(lo, mid), hi);
   if (theme === 'kruising') { f.cross = true; f.minLeg = 2; }
   if (theme === 'prisma') f.prism = true;
   if (theme === 'kleur') f.filter = true;
   if (theme === 'kaats') { f.fixed = rng.int(Math.min(2, S.fixedMirrors[1]), S.fixedMirrors[1]); f.mirrors = rng.int(lo, Math.max(lo, mid)); }
-  // Niveaus die altijd meerdere extra's willen (Moeilijk): nog een tweede element erbij.
-  if (S.extras[0] >= 2) {
-    const more = rng.shuffle(['prism', 'filter', 'fixed'].filter((k) => !(k === 'prism' ? f.prism : k === 'filter' ? f.filter : f.fixed > 0)));
-    for (const k of more.slice(0, f.prism || f.filter || f.fixed ? 1 : 2)) {
-      if (k === 'prism') f.prism = true;
-      else if (k === 'filter') f.filter = true;
-      else f.fixed = range(rng, S.fixedMirrors);
-    }
+  // Daarnaast, net als in v2, een aantal extra elementsoorten (S.extras); het thema-element telt mee.
+  const has = { prism: f.prism, filter: f.filter, fixed: f.fixed > 0 };
+  const want = S.extras[1] === 0 ? 0 : range(rng, S.extras);
+  for (const k of rng.shuffle<'prism' | 'filter' | 'fixed'>(['prism', 'filter', 'fixed'])) {
+    if (Object.values(has).filter(Boolean).length >= want) break;
+    if (has[k]) continue;
+    has[k] = true;
+    if (k === 'prism') f.prism = true;
+    else if (k === 'filter') f.filter = true;
+    else f.fixed = rng.int(1, Math.min(2, S.fixedMirrors[1]));
   }
+  // Hoeveel kristallen er hooguit in één rij of kolom liggen: meestal 2, soms 3; bij lange schoten meer.
+  f.lineCap = f.runs ? rng.int(3, 4) : rng.next() < 0.3 ? 3 : 2;
   return f;
 }
 
@@ -109,10 +115,10 @@ function layRoute(rng: Rng, S: GenSettings, F: Features): Route | null {
   else { sx = rng.int(1, w - 2); sy = h - 1; dir = 3; }
   cells[sy * w + sx] = { kind: 'source', dir };
 
-  // Een paar muren vooraf: de route buigt eromheen of stopt ertegen. Wat niets doet, gaat later weer weg.
+  // Muren vooraf, als terrein: de route buigt eromheen of stopt ertegen. Wat ver van alles ligt, gaat later weer weg.
   const front = new Set([1, 2].map((k) => (sy + DY[dir] * k) * w + sx + DX[dir] * k));
   const free = rng.shuffle(cells.flatMap((c, i) => (c.kind === 'empty' && !front.has(i) ? [i] : [])));
-  for (let k = range(rng, GEN_V3.preWalls); k > 0; k--) cells[free.pop()!] = WALL;
+  for (let k = range(rng, S.walls) + GEN_V3.extraWalls; k > 0; k--) cells[free.pop()!] = WALL;
 
   let p: Puzzle = { version: 1, width: w, height: h, mirrors: F.mirrors, cells };
   const mirrors: Placement[] = [];
@@ -194,18 +200,30 @@ function addCrystals(route: Route, rng: Rng, S: GenSettings, F: Features): Puzzl
   }
 
   const spots = spotsOf(p);
-  const want = Math.min(range(rng, [S.maxScore[0] + 1, S.maxScore[1]]), spots.length - 2);
-  if (want < S.maxScore[0]) return null;
+  const w = p.width;
+  const want = range(rng, [S.maxScore[0] + 1, S.maxScore[1]]);
+  const rows = new Map<number, number>(), cols = new Map<number, number>();
   const chosen = new Set<number>();
+  const take = (k: number, cap: number): boolean => {
+    if (chosen.has(k) || chosen.size >= want) return false;
+    const x = spots[k][0] % w, y = Math.floor(spots[k][0] / w);
+    if ((rows.get(y) ?? 0) >= cap || (cols.get(x) ?? 0) >= cap) return false;
+    rows.set(y, (rows.get(y) ?? 0) + 1);
+    cols.set(x, (cols.get(x) ?? 0) + 1);
+    chosen.add(k);
+    return true;
+  };
   if (F.runs) {
-    // Rijtjes van 3-4 op elkaar volgende routevakken.
-    for (let guard = 0; chosen.size < want && guard < 40; guard++) {
-      const start = rng.int(0, spots.length - 1);
-      for (let k = 0, len = rng.int(3, 4); k < len && start + k < spots.length && chosen.size < want; k++) chosen.add(start + k);
+    // Een of twee rijtjes van 3-4 op elkaar volgende routevakken.
+    for (let n = rng.int(1, 2); n > 0; n--) {
+      const start = rng.int(0, Math.max(0, spots.length - 4));
+      for (let k = 0, len = rng.int(3, 4); k < len && start + k < spots.length; k++) take(start + k, F.lineCap);
     }
   }
-  const order = rng.shuffle(spots.map((_, k) => k));
-  for (const k of order) { if (chosen.size >= want) break; chosen.add(k); }
+  // De rest gespreid over de route, met hooguit een paar per rij en kolom.
+  const spread = F.runs ? 2 : F.lineCap;
+  for (const k of rng.shuffle(spots.map((_, n) => n))) take(k, spread);
+  if (chosen.size < S.maxScore[0]) return null;
 
   const cells = [...p.cells];
   let whiteTrap = F.filter ? 1 : 0;
@@ -213,7 +231,10 @@ function addCrystals(route: Route, rng: Rng, S: GenSettings, F: Features): Puzzl
     const colors = [...pass.colors];
     if (chosen.has(k)) cells[i] = { kind: 'crystal', color: colors[rng.int(0, colors.length - 1)] };
     // Een wit kristal op het gekleurde stuk: de straal gaat erdoorheen, maar het telt niet.
-    else if (whiteTrap > 0 && !pass.colors.has('white')) { cells[i] = { kind: 'crystal', color: 'white' }; whiteTrap--; }
+    else if (whiteTrap > 0 && !pass.colors.has('white') && (rows.get(Math.floor(i / w)) ?? 0) < spread && (cols.get(i % w) ?? 0) < spread) {
+      cells[i] = { kind: 'crystal', color: 'white' };
+      whiteTrap--;
+    }
   });
   return withCells(p, cells);
 }
@@ -240,11 +261,21 @@ function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
   const designed = trace(p, plan).score;
   if (designed < S.maxScore[0] || designed > S.maxScore[1]) return null;
 
-  // Muren van vooraf die de route niet raakt, gaan weg; wat blijft, houdt de straal tegen.
-  const routeKey = (q: Puzzle) => JSON.stringify(trace(q, plan).segments);
-  for (const i of p.cells.flatMap((c, j) => (c.kind === 'wall' ? [j] : []))) {
-    const without = swap(p, i, EMPTY);
-    if (routeKey(without) === routeKey(p)) p = without;
+  // Terreinmuren die nergens aan de route grenzen, doen niets en gaan weg.
+  {
+    const beam = beamMap(p, plan);
+    const w = p.width, h = p.height;
+    const nearRoute = (i: number) => {
+      const x = i % w, y = Math.floor(i / w);
+      // Ook schuin ernaast telt: zo'n muur staat nog in de weg van een spiegel naast de route.
+      for (let ny = y - 1; ny <= y + 1; ny++) {
+        for (let nx = x - 1; nx <= x + 1; nx++) {
+          if (nx >= 0 && ny >= 0 && nx < w && ny < h && beam.has(ny * w + nx)) return true;
+        }
+      }
+      return false;
+    };
+    p = withCells(p, p.cells.map((c, i) => (c.kind === 'wall' && !nearRoute(i) ? EMPTY : c)));
   }
   if (!hardEnough(p, S, designed)) return null;
 
@@ -279,7 +310,22 @@ function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
   const already = p.cells.filter((c, i) => c.kind === 'crystal' && !planHit.has(i)).length;
   const lureCount = Math.max(0, range(rng, GEN_V3.lures) - already);
   const others = p.cells.flatMap((_, i) => (freeOff(p!, i) && !tempting.has(i) ? [i] : []));
-  const picks = [...rng.shuffle([...tempting]), ...rng.shuffle(others)].slice(0, lureCount);
+  const rowN = new Map<number, number>(), colN = new Map<number, number>();
+  p.cells.forEach((c, i) => {
+    if (c.kind !== 'crystal') return;
+    rowN.set(Math.floor(i / p!.width), (rowN.get(Math.floor(i / p!.width)) ?? 0) + 1);
+    colN.set(i % p!.width, (colN.get(i % p!.width) ?? 0) + 1);
+  });
+  const picks: number[] = [];
+  for (const i of [...rng.shuffle([...tempting]), ...rng.shuffle(others)]) {
+    if (picks.length >= lureCount) break;
+    const x = i % p.width, y = Math.floor(i / p.width);
+    // Lokkertjes maken een rij of kolom niet voller dan de kristallen op de route.
+    if ((rowN.get(y) ?? 0) >= Math.max(2, F.lineCap) || (colN.get(x) ?? 0) >= Math.max(2, F.lineCap)) continue;
+    rowN.set(y, (rowN.get(y) ?? 0) + 1);
+    colN.set(x, (colN.get(x) ?? 0) + 1);
+    picks.push(i);
+  }
   const lureColors: BeamColor[] = ['white', ...p.cells.flatMap((c) => (c.kind === 'filter' ? [c.color] : []))];
   let lures = new Set(picks);
   const base: Puzzle = p;
@@ -300,11 +346,15 @@ function attempt(rng: Rng, S: GenSettings, theme: Theme): Candidate | null {
     if (!again.exact || again.max >= designed) return null;
   }
 
-  // Elk bijzonder stuk moet nodig zijn voor het maximum.
+  // Het element van het thema moet nodig zijn voor het maximum; een bijkomend stuk moet in elk geval
+  // meedoen in de beste oplossing (zonder dat stuk raakt die oplossing minder).
   const needed = (q: Puzzle) => { const r = search(q); return r.exact && r.max < designed; };
+  const used = (q: Puzzle) => trace(q, best.solution).score < designed;
   for (let i = 0; i < p.cells.length; i++) {
     const kind = p.cells[i].kind;
-    if ((kind === 'prism' || kind === 'fixedMirror') && !needed(swap(p, i, WALL))) return null;
+    if (kind !== 'prism' && kind !== 'fixedMirror') continue;
+    const strict = kind === 'prism' ? theme === 'prisma' : theme === 'kaats';
+    if (!(strict ? needed : used)(swap(p, i, WALL))) return null;
   }
   if (p.cells.some((c) => c.kind === 'filter') && !needed(withoutFilters(p))) return null;
   if (validatePuzzle(p).length) return null;
