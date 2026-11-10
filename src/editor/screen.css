@@ -159,6 +159,9 @@
 .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .menu-gen { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; padding: 12px; border-radius: 18px; background: rgba(5, 10, 30, 0.35); }
 .menu-gen .seg { min-width: 0; width: 100%; }
+.menu-theme-label { margin: 4px 0 0; }
+.menu-themes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.menu-themes .btn-chip { padding: 0 6px; font-size: 13px; }
 .ed-menu .btn { min-height: 48px; font-size: 15px; }
 .btn-danger { color: var(--beam-red); }
 

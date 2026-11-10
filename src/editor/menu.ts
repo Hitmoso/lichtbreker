@@ -7,7 +7,8 @@ import { h } from '../ui/dom';
 import { newSeed } from '../ui/modes/endless';
 import { segmented } from '../ui/segmented';
 import { closeSheet, openSheet } from '../ui/sheet';
-import { requestEndless, requestGeneratedDaily } from '../worker/client';
+import { THEME_NAMES, THEMES, type Theme } from '../core/generator3';
+import { requestEndless, requestGeneratedDaily, requestThemed } from '../worker/client';
 import type { Origin } from './draft';
 import { errorText, removeOwn, shortDate, todayStr, tomorrowStr } from './publish';
 import type { EditorApi } from './screen';
@@ -70,6 +71,16 @@ export function openMenu(api: EditorApi): void {
     if (r) api.load(r.puzzle, r.origin);
   };
 
+  /** Een puzzel met dit thema; lukt het bij deze seed niet, dan een paar andere seeds proberen. */
+  const themed = async (theme: Theme) => {
+    for (let k = 0; k < 4; k++) {
+      const r = await requestThemed(newSeed(), difficulty, theme);
+      if (r.theme === theme) { toast(`Thema: ${THEME_NAMES[theme]}`); return { puzzle: r.puzzle, origin: { kind: 'new' } as Origin }; }
+    }
+    toast(`${THEME_NAMES[theme]} lukt niet op dit niveau`);
+    return null;
+  };
+
   const own = api.origin.kind === 'date' && api.origin.own;
   openSheet(h('div', { class: 'ed-sheet ed-menu' },
     h('h2', { class: 'sheet-title' }, 'Meer'),
@@ -88,7 +99,10 @@ export function openMenu(api: EditorApi): void {
       h('button', {
         class: 'btn btn-ghost', type: 'button',
         onClick: () => void start(async () => ({ puzzle: (await requestEndless(newSeed(), difficulty)).puzzle, origin: { kind: 'new' } })),
-      }, 'Genereer')),
+      }, 'Genereer'),
+      h('p', { class: 'pn-label menu-theme-label' }, 'Of kies een thema'),
+      h('div', { class: 'menu-themes' }, ...THEMES.map((t) =>
+        h('button', { class: 'btn btn-ghost btn-chip', type: 'button', onClick: () => void start(() => themed(t)) }, THEME_NAMES[t])))),
     own ? h('button', {
       class: 'btn btn-ghost btn-wide btn-danger', type: 'button',
       onClick: async () => {

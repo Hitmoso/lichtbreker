@@ -1,7 +1,8 @@
-import { EPOCH, GEN_V2 } from '../config';
+import { EPOCH, GEN_V2, GEN_V3 } from '../config';
 import overridesJson from '../data/overrides.json';
 import { generate } from './generator';
 import { generateV2 } from './generator2';
+import { generateV3 } from './generator3';
 import { hashSeed } from './rng';
 import { solve } from './solver';
 import type { Placement, Puzzle } from './types';
@@ -62,8 +63,8 @@ export function getDaily(dateStr: string, overrides: Record<string, unknown> = o
     }
     console.warn(`Lichtbreker: override voor ${dateStr} is ongeldig en wordt genegeerd:`, errs);
   }
-  // Vanaf GEN_V2.from de nieuwe generator; eerdere dagen blijven precies gelijk.
+  // Elke generatorversie geldt vanaf haar eigen datum; eerdere dagen blijven precies gelijk.
   const seed = hashSeed('lichtbreker', number);
-  const g = dateStr >= GEN_V2.from ? generateV2(seed) : generate(seed);
+  const g = dateStr >= GEN_V3.from ? generateV3(seed) : dateStr >= GEN_V2.from ? generateV2(seed) : generate(seed);
   return { number, puzzle: g.puzzle, max: g.max, solution: g.solution, source: g.source };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { amsterdamDate, getDaily, msUntilNextPuzzle, puzzleNumber } from '../../src/core/daily';
-import { GEN_V2 } from '../../src/config';
+import { GEN_V2, GEN_V3 } from '../../src/config';
+import { generateV3 } from '../../src/core/generator3';
 import { FALLBACK, generate } from '../../src/core/generator';
 import { generateV2 } from '../../src/core/generator2';
 import { hashSeed } from '../../src/core/rng';
@@ -52,7 +53,13 @@ describe('getDaily', () => {
     expect(GEN_V2.from).toBe('2026-11-10');
     expect(getDaily('2026-11-09', {}).puzzle).toEqual(generate(seedOf('2026-11-09')).puzzle);
     expect(getDaily('2026-11-10', {}).puzzle).toEqual(generateV2(seedOf('2026-11-10')).puzzle);
-    expect(getDaily('2027-03-01', {}).puzzle).toEqual(generateV2(seedOf('2027-03-01')).puzzle);
+    expect(getDaily('2026-11-23', {}).puzzle).toEqual(generateV2(seedOf('2026-11-23')).puzzle);
+  });
+  it('switches to generator v3 on GEN_V3.from', () => {
+    const seedOf = (date: string) => hashSeed('lichtbreker', puzzleNumber(date));
+    expect(GEN_V3.from).toBe('2026-11-24');
+    expect(getDaily('2026-11-24', {}).puzzle).toEqual(generateV3(seedOf('2026-11-24')).puzzle);
+    expect(getDaily('2027-03-01', {}).puzzle).toEqual(generateV3(seedOf('2027-03-01')).puzzle);
   });
   it('is the same puzzle for the same date', () => {
     expect(JSON.stringify(getDaily('2026-12-01', {}))).toBe(JSON.stringify(getDaily('2026-12-01', {})));

@@ -13,3 +13,14 @@ export function computeCellSize(viewW: number, viewH: number, gridW: number, gri
   const byH = (viewH - chromeH - SIDE_GUTTER) / gridH;
   return Math.max(MIN_CELL, Math.floor(Math.min(byW, byH, MAX_CELL)));
 }
+
+/**
+ * Bovenkant (px, binnen het podium) voor een tip van `tipH` hoog: midden in de grootste vrije strook
+ * boven of onder het veld. Past de tip nergens, dan over het veld heen: tegen de bovenrand, of tegen
+ * de onderrand als het uitgelegde element juist bovenaan staat (`avoidTop`).
+ */
+export function tipTop(stageH: number, boardTop: number, boardBottom: number, tipH: number, avoidTop = false): number {
+  const above = boardTop, below = stageH - boardBottom;
+  if (Math.max(above, below) < tipH) return avoidTop ? Math.max(6, stageH - tipH - 6) : 6;
+  return Math.round(above >= below ? (above - tipH) / 2 : boardBottom + (below - tipH) / 2);
+}

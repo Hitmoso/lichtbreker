@@ -13,8 +13,8 @@ export const COLORS = {
   accent: 0xffb938,
   beam: { white: 0xffe8b0, red: 0xff5470, green: 0x3df5a0, blue: 0x4fa8ff },
   crystal: { white: 0xcff4ff, red: 0xff5470, green: 0x3df5a0, blue: 0x4fa8ff },
-  mirror: 0xdfe6ff,
-  fixedMirror: 0x9aa6d8,
+  mirror: 0xeef2ff,
+  fixedMirror: 0xaab6e8,
 } as const;
 
 export const FONTS = {

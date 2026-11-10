@@ -1,17 +1,25 @@
-import type { Cell, ElementKind, Puzzle } from '../../core/types';
+import type { BeamColor, Cell, ElementKind, Puzzle } from '../../core/types';
+import { innerPoints, outlinePath, pathOf } from '../../render/shapes';
 import { h } from '../dom';
 import { openSheet } from '../sheet';
 
 type HelpKind = 'mirror' | 'crystal' | 'coloredCrystal' | 'wall' | ElementKind;
 
+const HEX = { white: '#cff4ff', red: '#ff5470', green: '#3df5a0', blue: '#4fa8ff' } as const;
+/** Kristal zoals in het veld: omtrek met een helder middenvlak. */
+const gem = (color: BeamColor, cx: number, cy: number, r: number) =>
+  `<path d="${outlinePath(color, cx, cy, r)}" fill="${HEX[color]}" fill-opacity=".2" stroke="${HEX[color]}" stroke-width="1.5" stroke-linejoin="round"/>`
+  + `<path d="${pathOf(innerPoints(color, cx, cy, r))}" fill="${HEX[color]}" fill-opacity=".5" stroke="#fff" stroke-opacity=".75" stroke-width=".7" stroke-linejoin="round"/>`;
+
 const ICON: Record<HelpKind, string> = {
-  mirror: '<path d="M6 18 18 6" stroke="#dfe6ff" stroke-width="3" stroke-linecap="round"/>',
-  crystal: '<path d="M12 4 18 12 12 20 6 12Z" fill="rgba(207,244,255,.25)" stroke="#cff4ff" stroke-width="1.8"/>',
-  coloredCrystal: '<path d="M7 5 13 15H1Z" fill="rgba(255,84,112,.3)" stroke="#ff5470" stroke-width="1.6"/><circle cx="18" cy="15" r="4" fill="rgba(79,168,255,.3)" stroke="#4fa8ff" stroke-width="1.6"/>',
-  wall: '<rect x="4" y="4" width="16" height="16" rx="3" fill="#1c2756" stroke="#5a6db3" stroke-width="1.6"/>',
-  fixedMirror: '<path d="M6 18 18 6" stroke="#9aa6d8" stroke-width="3" stroke-linecap="round"/><circle cx="6" cy="18" r="1.8" fill="#33438a"/><circle cx="18" cy="6" r="1.8" fill="#33438a"/>',
-  prism: '<path d="M12 4 20 19H4Z" fill="rgba(255,255,255,.08)" stroke="#fff" stroke-width="1.6"/><path d="M9 15l6-3" stroke="#ff5470"/><path d="M9.5 13.5l5-2.5" stroke="#3df5a0"/>',
-  filter: '<rect x="4" y="4" width="16" height="16" rx="4" fill="rgba(61,245,160,.18)" stroke="#3df5a0" stroke-width="1.6"/>',
+  mirror: '<path d="M6 18 18 6" stroke="#eef2ff" stroke-width="3" stroke-linecap="round"/>',
+  crystal: gem('white', 12, 12, 9.5),
+  coloredCrystal: gem('red', 6.5, 12, 6.5) + gem('blue', 17.5, 12, 6.5),
+  wall: '<rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="#1c2756" stroke="#5a6db3" stroke-width="1.5"/><path d="M4 12h16M12 6.5V12M7.5 12v5.5M16.5 12v5.5" stroke="#5a6db3" stroke-opacity=".6" stroke-width="1"/>',
+  fixedMirror: '<rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="#1c2756" stroke="#5a6db3" stroke-width="1.3"/><path d="M6.5 17.5 17.5 6.5" stroke="#aab6e8" stroke-width="2.6" stroke-linecap="round"/><circle cx="6.5" cy="17.5" r="1.6" fill="#5a6db3"/><circle cx="17.5" cy="6.5" r="1.6" fill="#5a6db3"/>',
+  prism: '<defs><linearGradient id="help-spectrum" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff5470"/><stop offset=".35" stop-color="#ffb938"/><stop offset=".65" stop-color="#3df5a0"/><stop offset="1" stop-color="#4fa8ff"/></linearGradient></defs>'
+    + '<path d="M12 4 20 18.5H4Z" fill="rgba(255,255,255,.1)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9.6 16.6 18H7.4Z" fill="url(#help-spectrum)" fill-opacity=".85"/>',
+  filter: `<rect x="3" y="3" width="18" height="18" rx="4" fill="rgba(61,245,160,.16)" stroke="#3df5a0" stroke-width="1.6"/><path d="${outlinePath('green', 12, 12, 5.4)}" fill="rgba(61,245,160,.25)" stroke="#3df5a0" stroke-width="1.6" stroke-linejoin="round"/>`,
 };
 
 const TEXT: Record<HelpKind, [string, string]> = {
@@ -27,7 +35,7 @@ const TEXT: Record<HelpKind, [string, string]> = {
 export const TIP: Record<ElementKind, string> = {
   fixedMirror: 'Vaste spiegel: kaatst de straal, maar zit vast.',
   prism: 'Prisma: splitst de straal in twee.',
-  filter: 'Kleurfilter: kleurt de straal. Daarna lichten alleen kristallen in die kleur op, witte niet meer.',
+  filter: 'Kleurfilter: kleurt de straal. Daarna tellen alleen kristallen in die kleur.',
 };
 
 export const elementKinds = (p: Puzzle): ElementKind[] =>

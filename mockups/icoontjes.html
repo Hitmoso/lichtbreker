@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lichtbreker – icoontjes vergelijken</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&family=Unbounded:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a1230; --bg-deep: #050a1e; --surface: #141e48; --line: #2a3a78;
+    --text: #e8ecff; --muted: #8d97c8; --accent: #ffb938; --plate: #0e1739;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--text);
+    background: radial-gradient(120% 90% at 50% 20%, var(--bg) 0%, var(--bg-deep) 100%) fixed var(--bg-deep);
+    font: 400 16px/1.5 'Instrument Sans', system-ui, sans-serif;
+  }
+  main { max-width: 1240px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font: 700 26px/1.2 'Unbounded', system-ui, sans-serif; margin: 0 0 8px; color: var(--accent); }
+  .intro { color: var(--muted); max-width: 62ch; margin: 0 0 18px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-bottom: 22px; }
+  .controls label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .controls input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .panels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 1100px) { .panels { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .panels { grid-template-columns: 1fr; } }
+  .panel { background: rgba(20, 30, 72, 0.55); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  .panel h2 { font: 700 17px/1.2 'Unbounded', system-ui, sans-serif; margin: 0 0 4px; }
+  .panel .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; min-height: 3em; }
+  .board { display: block; width: 100%; height: auto; border-radius: 14px; margin-bottom: 14px; }
+  .legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 4px; }
+  .legend figure { margin: 0; text-align: center; }
+  .legend svg { width: 52px; height: 52px; background: var(--plate); border-radius: 10px; transition: width .2s, height .2s; }
+  .legend figcaption { font-size: 12px; color: var(--muted); line-height: 1.25; margin-top: 2px; }
+  body.small .legend svg { width: 30px; height: 30px; border-radius: 6px; }
+  body.grey .board, body.grey .legend svg { filter: grayscale(1); }
+  .glow { filter: blur(4px); }
+  .neon { filter: drop-shadow(0 0 2.5px var(--c)); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".7" /><stop offset=".55" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="spectrum" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5470" /><stop offset=".35" stop-color="#ffb938" />
+      <stop offset=".65" stop-color="#3df5a0" /><stop offset="1" stop-color="#4fa8ff" />
+    </linearGradient>
+    <linearGradient id="mirrorGlass" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#b9c4f2" /><stop offset=".5" stop-color="#ffffff" /><stop offset="1" stop-color="#b9c4f2" />
+    </linearGradient>
+    <clipPath id="wallClip"><rect x="5" y="5" width="38" height="38" rx="6" /></clipPath>
+  </defs>
+</svg>
+<main>
+  <h1>Icoontjes vergelijken</h1>
+  <p class="intro">Links staat het spel zoals het nu is, daarnaast drie nieuwe stijlen. In alle drie krijgt het rode kristal een druppelvorm (nu is het een driehoek, net als het prisma), en zit de vaste spiegel op een plaatje met boutjes zodat je hem niet verwart met je eigen spiegel.</p>
+  <div class="controls">
+    <label><input type="checkbox" id="grey" /> Bekijk zonder kleur (kleurenblind-check)</label>
+    <label><input type="checkbox" id="small" /> Kleine icoontjes (zoals op Moeilijk)</label>
+  </div>
+  <div class="panels" id="panels"></div>
+</main>
+<script>
+const COL = { white: '#cff4ff', red: '#ff5470', green: '#3df5a0', blue: '#4fa8ff' };
+const BEAM = { white: '#ffe8b0', red: '#ff5470' };
+const circlePts = (r) => Array.from({ length: 8 }, (_, i) => [24 + r * Math.cos(i * Math.PI / 4 + Math.PI / 8), 24 + r * Math.sin(i * Math.PI / 4 + Math.PI / 8)]);
+
+// Vormen: nieuw (ruit, druppel, smaragd, rond) en zoals nu (ruit, driehoek, zeshoek, cirkel).
+const NEW = {
+  white: { el: '<path d="M24 8 35 24 24 40 13 24Z"', pts: [[24, 8], [35, 24], [24, 40], [13, 24]], c: [24, 24] },
+  red: { el: '<path d="M24 7C29 15 35.5 21 35.5 28.5A11.5 11.5 0 0 1 12.5 28.5C12.5 21 19 15 24 7Z"', pts: [[24, 7], [34, 22], [34.5, 33], [24, 40], [13.5, 33], [14, 22]], c: [24, 27] },
+  green: { el: '<path d="M19 8H29L35 14V34L29 40H19L13 34V14Z"', pts: [[19, 8], [29, 8], [35, 14], [35, 34], [29, 40], [19, 40], [13, 34], [13, 14]], c: [24, 24] },
+  blue: { el: '<circle cx="24" cy="24" r="13"', pts: circlePts(13), c: [24, 24] },
+};
+const OLD = {
+  white: '<path d="M24 10.5 34 24 24 37.5 14 24Z"',
+  red: '<path d="M24 10.5 36.5 33.5H11.5Z"',
+  green: '<path d="M24 11 35.3 17.5v13L24 37 12.7 30.5v-13Z"',
+  blue: '<circle cx="24" cy="24" r="11"',
+};
+const scaled = (c, k, inner) => `<g transform="translate(${c[0]} ${c[1]}) scale(${k}) translate(${-c[0]} ${-c[1]})">${inner}</g>`;
+
+function gem(style, color, state = '') {
+  const c = COL[color];
+  let out = '';
+  if (state === 'lit') out += `<circle class="glow" cx="24" cy="24" r="17" fill="${c}" opacity=".55"/>`;
+  if (style === 'nu') {
+    out += `${OLD[color]} fill="${c}" fill-opacity=".28" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
+  } else {
+    const s = NEW[color];
+    if (style === 'A') {
+      out += `${s.el} fill="${c}" fill-opacity=".2" stroke="${c}" stroke-width="1.7" stroke-linejoin="round"/>`;
+      out += s.pts.map(([x, y]) => `<line x1="${x}" y1="${y}" x2="${s.c[0] + (x - s.c[0]) * 0.5}" y2="${s.c[1] + (y - s.c[1]) * 0.5}" stroke="${c}" stroke-opacity=".6" stroke-width="1"/>`).join('');
+      out += scaled(s.c, 0.5, `${s.el} fill="${c}" fill-opacity=".5" stroke="#fff" stroke-opacity=".75" stroke-width="2" stroke-linejoin="round"/>`);
+      out += `${s.el} fill="url(#shine)" opacity=".35"/>`;
+    } else if (style === 'B') {
+      out += `<g class="neon" style="--c:${c}">${s.el} fill="${c}" fill-opacity=".1" stroke="${c}" stroke-width="2.3" stroke-linejoin="round"/>`;
+      out += scaled(s.c, 0.5, `${s.el} fill="none" stroke="${c}" stroke-opacity=".7" stroke-width="2.4" stroke-linejoin="round"/>`) + '</g>';
+    } else {
+      out += `${s.el} fill="${c}" stroke="#050a1e" stroke-opacity=".55" stroke-width="1" stroke-linejoin="round"/>`;
+      out += scaled(s.c, 0.55, `${s.el} fill="#fff" fill-opacity=".3"/>`);
+      out += `${s.el} fill="url(#shine)"/>`;
+    }
+  }
+  return state === 'dim' ? `<g opacity=".4">${out}</g>` : out;
+}
+
+function filter(style, color) {
+  const c = COL[color];
+  if (style === 'nu') {
+    return `<rect x="6" y="6" width="36" height="36" rx="7" fill="${c}" fill-opacity=".18" stroke="${c}" stroke-opacity=".8" stroke-width="2"/>`
+      + scaled([24, 24], 0.38, `${OLD[color]} fill="${c}"/>`);
+  }
+  const s = NEW[color];
+  const frame = '<rect x="6" y="6" width="36" height="36" rx="8"';
+  if (style === 'A') {
+    return `${frame} fill="${c}" fill-opacity=".16" stroke="${c}" stroke-width="1.7"/>`
+      + `<path d="M11 19 19 11M11 25 25 11" stroke="#fff" stroke-opacity=".35" stroke-width="1.4" stroke-linecap="round"/>`
+      + scaled(s.c, 0.6, `${s.el} fill="${c}" fill-opacity=".25" stroke="${c}" stroke-width="3.4" stroke-linejoin="round"/>`);
+  }
+  if (style === 'B') {
+    return `<g class="neon" style="--c:${c}">${frame} fill="${c}" fill-opacity=".07" stroke="${c}" stroke-width="2.2" stroke-dasharray="7 3"/>`
+      + scaled(s.c, 0.6, `${s.el} fill="none" stroke="${c}" stroke-width="3.6" stroke-linejoin="round"/>`) + '</g>';
+  }
+  return `${frame} fill="${c}" fill-opacity=".38" stroke="${c}" stroke-width="2.2"/>`
+    + `${frame} fill="url(#shine)" opacity=".3"/>`
+    + scaled(s.c, 0.6, `${s.el} fill="#fff" fill-opacity=".92" stroke="#050a1e" stroke-opacity=".4" stroke-width="1.6"/>`);
+}
+
+function mirror(style, kind, fixed) {
+  const [x1, y1, x2, y2] = kind === '/' ? [12, 36, 36, 12] : [12, 12, 36, 36];
+  const line = (col, w, extra = '') => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" ${extra}/>`;
+  if (style === 'nu') {
+    const dots = fixed ? `<circle cx="${x1}" cy="${y1}" r="2.4" fill="#5a6db3"/><circle cx="${x2}" cy="${y2}" r="2.4" fill="#5a6db3"/>` : '';
+    return line(fixed ? '#9aa6d8' : '#dfe6ff', 4.4) + dots;
+  }
+  const hi = `<line x1="${x1 + 4}" y1="${y1 + (kind === '/' ? -6.5 : 1.5)}" x2="${x1 + 13}" y2="${y1 + (kind === '/' ? -15.5 : 10.5)}" stroke="#fff" stroke-opacity=".9" stroke-width="1.2" stroke-linecap="round"/>`;
+  if (!fixed) {
+    if (style === 'A') return `<g class="neon" style="--c:#aebcff">${line('url(#mirrorGlass)', 5.5)}</g>${hi}`;
+    if (style === 'B') return `<g class="neon" style="--c:#dfe6ff">${line('#eef2ff', 3.2)}</g>`;
+    return line('#050a1e', 8, 'stroke-opacity=".5"') + line('#eef2ff', 6) + hi;
+  }
+  const bolts = `<circle cx="${x1}" cy="${y1}" r="3" fill="#5a6db3" stroke="#0e1739" stroke-width="1"/><circle cx="${x2}" cy="${y2}" r="3" fill="#5a6db3" stroke="#0e1739" stroke-width="1"/>`;
+  if (style === 'A') return `<circle cx="24" cy="24" r="18" fill="#141e48" stroke="#5a6db3" stroke-width="1.5"/>${line('#aab6e8', 4.6)}${hi}${bolts}`;
+  if (style === 'B') return `<circle cx="24" cy="24" r="18" fill="none" stroke="#5a6db3" stroke-width="1.6" stroke-dasharray="4 3"/>${line('#9aa6d8', 3.2)}${bolts}`;
+  return `<rect x="6" y="6" width="36" height="36" rx="10" fill="#1c2756" stroke="#5a6db3" stroke-width="1.6"/>${line('#b9c4f2', 5.5)}${bolts}`;
+}
+
+function prism(style) {
+  const tri = '<path d="M24 8 40 37H8Z"';
+  if (style === 'nu') {
+    return '<path d="M24 9 38.5 34.5H9.5Z" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".9" stroke-width="2" stroke-linejoin="round"/>'
+      + '<path d="M17 30l9-5" stroke="#ff5470" stroke-width="1.5"/><path d="M18.5 27.5l8-4.5" stroke="#ffb938" stroke-width="1.5"/><path d="M20 25l7-4" stroke="#3df5a0" stroke-width="1.5"/>';
+  }
+  if (style === 'A') {
+    return `${tri} fill="#fff" fill-opacity=".1" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>`
+      + scaled([24, 27.3], 0.58, `${tri} fill="url(#spectrum)" fill-opacity=".85"/>`)
+      + `${tri} fill="url(#shine)" opacity=".3"/>`;
+  }
+  if (style === 'B') {
+    return `<g class="neon" style="--c:#ffffff">${tri} fill="#fff" fill-opacity=".05" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></g>`
+      + '<path d="M16 31h16" stroke="#ff5470" stroke-width="2" stroke-linecap="round"/><path d="M19 26h10" stroke="#3df5a0" stroke-width="2" stroke-linecap="round"/><path d="M22 21h4" stroke="#4fa8ff" stroke-width="2" stroke-linecap="round"/>';
+  }
+  return `${tri} fill="#e8ecff" stroke="#050a1e" stroke-opacity=".5" stroke-width="1" stroke-linejoin="round"/>`
+    + scaled([24, 27.3], 0.62, `${tri} fill="url(#spectrum)"/>`) + `${tri} fill="url(#shine)" opacity=".8"/>`;
+}
+
+function wall(style) {
+  if (style === 'nu') return '<rect x="4" y="4" width="40" height="40" rx="6" fill="#1c2756" stroke="#5a6db3" stroke-opacity=".9" stroke-width="2"/><path d="M9 8h30" stroke="#5a6db3" stroke-opacity=".6" stroke-width="1.5"/>';
+  const r = '<rect x="5" y="5" width="38" height="38" rx="6"';
+  if (style === 'A') {
+    return `${r} fill="#1a2450" stroke="#5a6db3" stroke-width="1.6"/>`
+      + '<g clip-path="url(#wallClip)"><path d="M5 5h38v6H5z" fill="#3a4a94" opacity=".7"/><path d="M5 37h38v6H5z" fill="#050a1e" opacity=".5"/>'
+      + '<path d="M5 24h38M24 11v13M14 24v13M34 24v13" stroke="#5a6db3" stroke-opacity=".55" stroke-width="1.2"/></g>';
+  }
+  if (style === 'B') {
+    return `${r} fill="#0e1739" stroke="#5a6db3" stroke-width="2.2"/>`
+      + '<g clip-path="url(#wallClip)" stroke="#5a6db3" stroke-opacity=".7" stroke-width="1.6"><path d="M-2 22 22-2M4 44 44 4M26 50 50 26M-2 34 34-2M14 46 46 14"/></g>';
+  }
+  return `${r} fill="#2a3a78" stroke="#6f82cc" stroke-width="2"/><rect x="11" y="11" width="26" height="26" rx="3" fill="#35468f"/>${r} fill="url(#shine)" opacity=".25"/>`;
+}
+
+function source(style) {
+  if (style === 'nu') return '<circle class="glow" cx="24" cy="24" r="14" fill="#ffe8b0" opacity=".45"/><rect x="9.5" y="9.5" width="29" height="29" rx="8.5" fill="#141e48" stroke="#ffb938" stroke-width="2"/><circle cx="29.8" cy="24" r="4.8" fill="#ffe8b0"/>';
+  if (style === 'A') {
+    return '<circle class="glow" cx="24" cy="24" r="14" fill="#ffe8b0" opacity=".45"/>'
+      + '<rect x="30" y="18.5" width="13" height="11" rx="2.5" fill="#141e48" stroke="#ffb938" stroke-width="1.7"/>'
+      + '<circle cx="21" cy="24" r="14" fill="#141e48" stroke="#ffb938" stroke-width="2"/><circle cx="21" cy="24" r="9.5" fill="none" stroke="#ffb938" stroke-opacity=".4" stroke-width="1"/>'
+      + '<circle cx="21" cy="24" r="6" fill="#ffe8b0"/><circle cx="19" cy="22" r="1.8" fill="#fff"/>';
+  }
+  if (style === 'B') {
+    return '<g class="neon" style="--c:#ffb938"><circle cx="24" cy="24" r="15" fill="#ffb938" fill-opacity=".08" stroke="#ffb938" stroke-width="2.3"/>'
+      + '<path d="M19 15l10 9-10 9" fill="none" stroke="#ffe8b0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>';
+  }
+  return '<circle class="glow" cx="24" cy="24" r="14" fill="#ffe8b0" opacity=".45"/><path d="M30 14 44 24 30 34Z" fill="#ffb938"/>'
+    + '<circle cx="22" cy="24" r="14" fill="#ffb938" stroke="#050a1e" stroke-opacity=".4"/><circle cx="22" cy="24" r="14" fill="url(#shine)" opacity=".6"/><circle cx="22" cy="24" r="6.5" fill="#fff8e0"/>';
+}
+
+const icon = (inner) => `<svg viewBox="0 0 48 48" aria-hidden="true">${inner}</svg>`;
+
+/** Voorbeeldveldje van 5×5 met een witte straal, een rood filter en een eigen spiegel. */
+function board(style) {
+  const at = (x, y, inner) => `<g transform="translate(${x * 48} ${y * 48})">${inner}</g>`;
+  let s = '<svg class="board" viewBox="0 0 240 240" role="img" aria-label="Voorbeeldveld"><rect x=".5" y=".5" width="239" height="239" rx="14" fill="#0e1739" stroke="#2a3a78"/>';
+  for (let y = 1; y < 5; y++) for (let x = 1; x < 5; x++) s += `<circle cx="${x * 48}" cy="${y * 48}" r="1.2" fill="#2a3a78"/>`;
+  s += at(2, 3, wall(style)) + at(0, 4, wall(style)) + at(1, 3, prism(style)) + at(0, 2, mirror(style, '/', true)) + at(2, 1, filter(style, 'red')) + at(3, 4, filter(style, 'blue')) + at(0, 1, source(style));
+  const beam = (d, c) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="15" opacity=".3" class="glow"/><path d="${d}" fill="none" stroke="${c}" stroke-width="3.4"/><path d="${d}" fill="none" stroke="#fff" stroke-width="1.2" opacity=".9"/>`;
+  s += beam('M24 72H120', BEAM.white) + beam('M120 72H216V240', BEAM.red);
+  s += at(1, 1, gem(style, 'white', 'lit')) + at(3, 1, gem(style, 'red', 'lit')) + at(4, 3, gem(style, 'blue', 'dim')) + at(3, 3, gem(style, 'green')) + at(2, 4, gem(style, 'white')) + at(1, 0, gem(style, 'red')) + at(3, 0, gem(style, 'blue')) + at(2, 2, gem(style, 'green'));
+  s += at(4, 1, mirror(style, '\\', false)) + at(1, 4, mirror(style, '/', false));
+  return s + '</svg>';
+}
+
+const STYLES = [
+  ['nu', 'Zoals nu', 'Platte, omlijnde vormen. Rood kristal en prisma zijn allebei een driehoek.'],
+  ['A', 'A: Geslepen glas', 'Doorschijnende edelstenen met facetten. Rustig, past bij het huidige thema.'],
+  ['B', 'B: Neonlijn', 'Alleen gloeiende lijnen, zoals de laser zelf. Het lichtst en strakst.'],
+  ['C', 'C: Massief juweel', 'Volle, felle stenen met een glans. Het speelst en het best leesbaar.'],
+];
+const item = (svg, label) => `<figure>${icon(svg)}<figcaption>${label}</figcaption></figure>`;
+document.getElementById('panels').innerHTML = STYLES.map(([st, name, sub]) => `
+  <section class="panel">
+    <h2>${name}</h2><p class="sub">${sub}</p>
+    ${board(st)}
+    <div class="legend">
+      ${item(gem(st, 'white'), 'Wit kristal')}${item(gem(st, 'red'), 'Rood')}${item(gem(st, 'green'), 'Groen')}${item(gem(st, 'blue'), 'Blauw')}
+      ${item(filter(st, 'red'), 'Rood filter')}${item(filter(st, 'green'), 'Groen filter')}${item(filter(st, 'blue'), 'Blauw filter')}${item(prism(st), 'Prisma')}
+      ${item(mirror(st, '/', false), 'Jouw spiegel')}${item(mirror(st, '/', true), 'Vaste spiegel')}${item(wall(st), 'Muur')}${item(source(st), 'Bron')}
+    </div>
+  </section>`).join('');
+for (const id of ['grey', 'small']) document.getElementById(id).addEventListener('change', (e) => document.body.classList.toggle(id, e.target.checked));
+</script>
+</body>
+</html>

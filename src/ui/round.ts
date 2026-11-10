@@ -231,11 +231,26 @@ export class Round {
 
   private renderCounter(n?: number) {
     const g = this.g!;
-    if (g.submitted && n === undefined) n = this.viewing ? g.max : (g.score ?? 0);
-    this.counter.textContent = n === undefined ? '' : `💎 ${n}`;
-    this.counter.classList.toggle('is-visible', n !== undefined);
+    const settled = n === undefined;
+    if (n === undefined) {
+      // Tijdens het spelen: wat de straal nu raakt. Het maximum blijft geheim tot na het vuren.
+      n = !g.submitted ? trace(g.puzzle, g.placements).score : this.viewing ? g.max : (g.score ?? 0);
+    }
+    // Tijdens het spelen meldt `announce` de stand al; de teller zelf hoeft dan niet voorgelezen.
+    this.counter.setAttribute('aria-live', g.submitted ? 'polite' : 'off');
+    if (this.counter.textContent !== `💎 ${n}`) {
+      this.counter.textContent = `💎 ${n}`;
+      // Kort tikje als de stand verandert (niet tijdens het vuren; dat heeft zijn eigen show).
+      if (!g.submitted && this.counter.classList.contains('is-visible')) {
+        this.counter.classList.remove('is-tick');
+        void this.counter.offsetWidth;
+        this.counter.classList.add('is-tick');
+      }
+    }
+    if (g.submitted) this.counter.classList.remove('is-tick');
+    this.counter.classList.add('is-visible');
     // Goud bij het maximum, zolang je naar je eigen straal kijkt. Tijdens het vuren pas na de schokgolf.
     const max = g.submitted && !this.viewing && (g.score ?? 0) >= g.max;
-    this.counter.classList.toggle('is-perfect', max && (this.perfectShown || (n === undefined && !this.isBusy)));
+    this.counter.classList.toggle('is-perfect', max && (this.perfectShown || (settled && !this.isBusy)));
   }
 }
